@@ -20,10 +20,9 @@ app.get("/health", (_req, res) => {
 // API v1 Feature Routes
 app.use("/api/v1/executor", executorRoutes);
 // 404 Catch-All
-app.use("*", (_req, _res, next) => {
+app.use((_req, _res, next) => {
   next(new NotFoundError("The requested endpoint does not exist"));
 });
-
 // Centralized Error Handling Middleware
 app.use(errorHandler);
 
