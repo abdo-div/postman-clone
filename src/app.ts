@@ -5,6 +5,8 @@ import { env } from "./config/env.config.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import { NotFoundError } from "./errors/app-error.js";
 import executorRoutes from "./modules/executor/executor.routes.js";
+import runnerRouter from "./modules/runner/runner.routes.js";
+
 const app: Application = express();
 
 app.use(helmet());
@@ -19,6 +21,7 @@ app.get("/health", (_req, res) => {
 });
 // API v1 Feature Routes
 app.use("/api/v1/executor", executorRoutes);
+app.use("/api/v1/runner", runnerRouter);
 // 404 Catch-All
 app.use((_req, _res, next) => {
   next(new NotFoundError("The requested endpoint does not exist"));
