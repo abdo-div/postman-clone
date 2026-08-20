@@ -56,5 +56,15 @@ const historySchema = new Schema<IHistory>(
   },
   { timestamps: false },
 );
+// src/modules/history/history.model.ts
 
+// Static method: Fetch average response duration for a specific request ID
+historySchema.statics.getAverageLatency = async function (requestId: Types.ObjectId): Promise<number> {
+  const stats = await this.aggregate([
+    { $match: { requestId } },
+    { $group: { _id: '$requestId', avgLatency: { $avg: '$metrics.durationMs' } } }
+  ]);
+
+  return stats.length > 0 ? Math.round(stats[0].avgLatency) : 0;
+};
 export const HistoryModel = model<IHistory>("History", historySchema);

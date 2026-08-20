@@ -48,5 +48,28 @@ const requestSchema = new Schema<IRequest>(
   },
   { timestamps: true },
 );
+// src/modules/request/request.model.ts
 
+// Pre-save hook: Sanitize and format URL string
+requestSchema.pre('save', function () {
+  if (this.url) {
+    this.url = this.url.trim();
+  }
+  
+});
+
+// Instance method: Resolve full target URL including query parameters
+requestSchema.methods.getFullUrl = function (): string {
+  if (!this.queryParams || this.queryParams.size === 0) {
+    return this.url;
+  }
+  
+  const searchParams = new URLSearchParams();
+  this.queryParams.forEach((value: string, key: string) => {
+    searchParams.append(key, value);
+  });
+
+  const queryString = searchParams.toString();
+  return this.url.includes('?') ? `${this.url}&${queryString}` : `${this.url}?${queryString}`;
+};
 export const RequestModel = model<IRequest>("Request", requestSchema);

@@ -38,6 +38,20 @@ const collectionSchema = new Schema<ICollection>(
   { timestamps: true },
 );
 
+collectionSchema.methods.getVariablesObject = function (): Record<string, string> {
+  const obj: Record<string, string> = {};
+  this.variables.forEach((val: string, key: string) => {
+    obj[key] = val;
+  });
+  return obj;
+};
+
+// Cascade delete: Remove associated requests when a collection is deleted
+collectionSchema.pre('deleteOne', { document: true, query: false }, async function () {
+  await model('Request').deleteMany({ collectionId: this._id });
+  
+});
+
 export const CollectionModel = model<ICollection>(
   "Collection",
   collectionSchema,
