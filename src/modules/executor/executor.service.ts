@@ -1,89 +1,83 @@
-import { performance } from "node:perf_hooks";
 import { ExecuteRequestInput, ExecutionResponse } from "./executor.dto.js";
 import { VariableParser } from "../../utils/variable-parser.util.js";
 import { BadRequestError } from "../../errors/app-error.js";
 
-/**
- * Service orchestrating external HTTP request execution,
- * latency measurement, and environment variable parsing.
- */
 export class ExecutorService {
-  /**
-   * Executes a remote HTTP request based on validated user input.
-   *
-   * @param input - Validated ExecuteRequestInput payload
-   * @returns Promise resolving to the normalized ExecutionResponse
-   */
-  static async execute(input: ExecuteRequestInput): Promise<ExecutionResponse> {
-    // 1. Resolve dynamic mustache variables in URL and headers
-    const resolvedUrl: string = VariableParser.parse(
-      input.url,
-      input.environmentVariables,
-    );
-    const resolvedHeaders: Record<string, string> = VariableParser.parseHeaders(
-      input.headers,
-      input.environmentVariables,
-    );
-
-    // 2. Set up AbortSignal to enforce request timeout limits
-    const controller: AbortController = new AbortController();
-    const timeoutId: NodeJS.Timeout = setTimeout((): void => {
-      controller.abort();
-    }, input.timeoutMs);
-
-    // 3. Start high-resolution timer
-    const startTime: number = performance.now();
-
+  public async execute(input: ExecuteRequestInput): Promise<ExecutionResponse> {
     try {
-      // Format request body (JSON stringify if object, keep raw if string/null)
-      const formattedBody: string | null =
-        typeof input.body === "object" && input.body !== null
-          ? JSON.stringify(input.body)
-          : (input.body as string | null);
+      // 1. Safely retrieve variables and headers with fallback defaults
+      const envVars = input.environmentVariables || {};
+      const rawHeaders = input.headers || {};
 
-      // 4. Dispatch native fetch network call
-      const response: Response = await fetch(resolvedUrl, {
+      // 2. Resolve mustache variables
+      const resolvedUrl = VariableParser.parse(input.url, envVars);
+
+      const resolvedHeaders: Record<string, string> = {};
+      for (const [key, value] of Object.entries(rawHeaders)) {
+        if (typeof value === "string") {
+          resolvedHeaders[VariableParser.parse(key, envVars)] =
+            VariableParser.parse(value, envVars);
+        }
+      }
+
+      // 3. Setup AbortSignal for strict timeout handling
+      const timeoutMs = input.timeoutMs || 10000;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      const startTime = performance.now();
+
+      // 4. Prepare request payload
+      const fetchOptions: RequestInit = {
         method: input.method,
         headers: resolvedHeaders,
-        body: ["GET", "HEAD"].includes(input.method) ? null : formattedBody,
         signal: controller.signal,
-      });
+      };
 
-      // 5. Stop timer and calculate total execution duration
-      const endTime: number = performance.now();
-      const durationMs: number = Math.round(endTime - startTime);
+      if (
+        input.body &&
+        ["POST", "PUT", "PATCH"].includes(input.method.toUpperCase())
+      ) {
+        fetchOptions.body =
+          typeof input.body === "string"
+            ? input.body
+            : JSON.stringify(input.body);
+      }
 
-      // Read raw text response body
-      const responseText: string = await response.text();
+      // 5. Dispatch native fetch request
+      const response = await fetch(resolvedUrl, fetchOptions);
+      const endTime = performance.now();
 
-      // Convert Fetch Headers instance into a standard key-value record
+      // 6. Extract response metadata and body text
+      const rawData = await response.text();
       const responseHeaders: Record<string, string> = {};
-      response.headers.forEach((value: string, key: string): void => {
+      response.headers.forEach((value, key) => {
         responseHeaders[key] = value;
       });
 
-      // 6. Return structured execution results
+      clearTimeout(timeout);
+
       return {
         status: response.status,
         statusText: response.statusText,
         headers: responseHeaders,
-        data: responseText,
+        data: rawData,
         metrics: {
-          durationMs,
-          sizeBytes: Buffer.byteLength(responseText, "utf8"),
+          durationMs: Math.round(endTime - startTime),
+          sizeBytes: Buffer.byteLength(rawData, "utf-8"),
         },
       };
-    } catch (error: unknown) {
-      // Catch timeout abort signal and transform into an operational AppError
-      if (error instanceof Error && error.name === "AbortError") {
+    } catch (error: any) {
+      if (error.name === "AbortError") {
         throw new BadRequestError(
-          `Request execution timed out after ${input.timeoutMs}ms`,
+          `Request execution timed out after ${input.timeoutMs || 10000}ms`,
         );
       }
-      throw error;
-    } finally {
-      // Always clear timeout to prevent timer memory leaks
-      clearTimeout(timeoutId);
+
+      // Catches ENOTFOUND, ECONNREFUSED, bad domain names, and parsing bugs
+      throw new BadRequestError(
+        `Execution failed: ${error.message || "Unable to reach target host"}`,
+      );
     }
   }
 }

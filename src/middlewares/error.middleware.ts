@@ -1,30 +1,32 @@
-import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../errors/app-error.js';
-import { env } from '../config/env.config.js';
+import { Request, Response, NextFunction } from "express";
+import { AppError } from "../errors/app-error.js";
 
 export const errorHandler = (
   err: Error,
   _req: Request,
   res: Response,
-  _next: NextFunction
-): void => {
-  let error = err;
+  _next: NextFunction,
+) => {
+  // Print real error stack in dev console to debug instantly
+  console.error("🔥 Server Error Caught:", err);
 
-  if (!(error instanceof AppError)) {
-    error = new AppError('An unexpected server error occurred', 500, 'INTERNAL_SERVER_ERROR');
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      success: false,
+      error: {
+        code: err.name,
+        message: err.message,
+        details: err.details,
+      },
+    });
   }
 
-  const appError = error as AppError;
-
-  const response = {
+  // Fallback for unexpected native JS/Node errors
+  return res.status(500).json({
     success: false,
     error: {
-      code: appError.errorCode,
-      message: appError.message,
-      ...(appError.details ? { details: appError.details } : {}),
-      ...(env.NODE_ENV === 'development' ? { stack: appError.stack } : {}),
+      code: "INTERNAL_SERVER_ERROR",
+      message: err.message || "An unexpected server error occurred",
     },
-  };
-
-  res.status(appError.statusCode).json(response);
+  });
 };

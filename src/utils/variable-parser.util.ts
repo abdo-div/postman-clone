@@ -18,15 +18,17 @@ export class VariableParser {
    * @param variables - Key-value map of environment variables
    * @returns Resolved string with substituted values
    */
-  static parse(template: string, variables: Record<string, string>): string {
+  static parse(template: string, variables?: Record<string, string>): string {
     if (!template) return template;
+
+    // Fallback to empty object if variables is null or undefined
+    const safeVariables = variables || {};
 
     return template.replace(
       this.VARIABLE_REGEX,
       (match: string, key: string): string => {
-        // Return active variable value if key exists, otherwise keep target intact
-        return Object.prototype.hasOwnProperty.call(variables, key)
-          ? variables[key]
+        return Object.prototype.hasOwnProperty.call(safeVariables, key)
+          ? safeVariables[key]
           : match;
       },
     );
@@ -40,12 +42,13 @@ export class VariableParser {
    * @returns New headers object with parsed key-value pairs
    */
   static parseHeaders(
-    headers: Record<string, string>,
-    variables: Record<string, string>,
+    headers?: Record<string, string>,
+    variables?: Record<string, string>,
   ): Record<string, string> {
     const parsedHeaders: Record<string, string> = {};
+    const safeHeaders = headers || {};
 
-    for (const [key, value] of Object.entries(headers)) {
+    for (const [key, value] of Object.entries(safeHeaders)) {
       const parsedKey: string = this.parse(key, variables);
       const parsedValue: string = this.parse(value, variables);
 
