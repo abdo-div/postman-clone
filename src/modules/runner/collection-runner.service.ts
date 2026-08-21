@@ -1,14 +1,14 @@
-import { CollectionModel } from '../collection/collection.model.js';
-import { RequestModel } from '../request/request.model.js';
-import { EnvironmentModel } from '../environment/environment.model.js';
-import { HistoryModel } from '../history/history.model.js';
-import { ExecutorService } from '../executor/executor.service.js';
-import { RunnerService } from './runner.service.js';
-import { NotFoundError } from '../../errors/app-error.js';
+import { CollectionModel } from "../collection/collection.model.js";
+import { RequestModel } from "../request/request.model.js";
+import { EnvironmentModel } from "../environment/environment.model.js";
+import { HistoryModel } from "../history/history.model.js";
+import { ExecutorService } from "../executor/executor.service.js";
+import { RunnerService } from "./runner.service.js";
+import { NotFoundError } from "../../errors/app-error.js";
 
 export interface RunCollectionInput {
   collectionId: string;
-  environmentId?: string;
+  environmentId?: string | undefined;
 }
 
 export class CollectionRunnerService {
@@ -23,7 +23,9 @@ export class CollectionRunnerService {
   public async runCollection(input: RunCollectionInput) {
     const collection = await CollectionModel.findById(input.collectionId);
     if (!collection) {
-      throw new NotFoundError(`Collection with ID ${input.collectionId} not found`);
+      throw new NotFoundError(
+        `Collection with ID ${input.collectionId} not found`,
+      );
     }
 
     // 1. Resolve initial active variables (Collection vars + Environment vars override)
@@ -45,7 +47,9 @@ export class CollectionRunnerService {
     }
 
     // 2. Fetch all request blueprints tied to this collection
-    const requests = await RequestModel.find({ collectionId: input.collectionId });
+    const requests = await RequestModel.find({
+      collectionId: input.collectionId,
+    });
 
     const executionSummary = [];
 
@@ -61,7 +65,11 @@ export class CollectionRunnerService {
         timeoutMs: 10000,
       });
 
-      let testResults: Array<{ name: string; passed: boolean; error?: string }> = [];
+      let testResults: Array<{
+        name: string;
+        passed: boolean;
+        error?: string;
+      }> = [];
 
       // Pass test assertions to sandboxed node:vm engine
       if (reqItem.testScript) {
@@ -88,13 +96,16 @@ export class CollectionRunnerService {
           method: reqItem.method,
           url: reqItem.url,
           headers: Object.fromEntries(reqItem.headers || new Map()),
-          body: reqItem.body?.rawContent || '',
+          body: reqItem.body?.rawContent || "",
         },
         responseSnapshot: {
           status: executionResult.status,
           statusText: executionResult.statusText,
           headers: executionResult.headers,
-          data: typeof executionResult.data === 'string' ? executionResult.data : JSON.stringify(executionResult.data),
+          data:
+            typeof executionResult.data === "string"
+              ? executionResult.data
+              : JSON.stringify(executionResult.data),
         },
         metrics: executionResult.metrics,
         testResults,

@@ -11,6 +11,7 @@ import environmentRouter from "./modules/environment/environment.routes.js";
 import historyRouter from "./modules/history/history.routes.js";
 import importerRouter from "./modules/importer/importer.routes.js";
 import workspaceRouter from "./modules/workspace/workspace.routes.js";
+import "./modules/runner/runner.worker.js";
 const app: Application = express();
 
 app.use(helmet());

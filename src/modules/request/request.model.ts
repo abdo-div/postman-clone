@@ -1,6 +1,7 @@
 import { Schema, model, Document, Types } from "mongoose";
 
 export interface IRequest extends Document {
+  workspaceId: Types.ObjectId;
   collectionId: Types.ObjectId;
   name: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
@@ -19,6 +20,12 @@ export interface IRequest extends Document {
 
 const requestSchema = new Schema<IRequest>(
   {
+    workspaceId: {
+      type: Schema.Types.ObjectId,
+      ref: "Workspace",
+      required: true,
+      index: true,
+    },
     collectionId: {
       type: Schema.Types.ObjectId,
       ref: "Collection",
@@ -51,11 +58,10 @@ const requestSchema = new Schema<IRequest>(
 // src/modules/request/request.model.ts
 
 // Pre-save hook: Sanitize and format URL string
-requestSchema.pre('save', function () {
+requestSchema.pre("save", function () {
   if (this.url) {
     this.url = this.url.trim();
   }
-  
 });
 
 // Instance method: Resolve full target URL including query parameters
@@ -63,13 +69,15 @@ requestSchema.methods.getFullUrl = function (): string {
   if (!this.queryParams || this.queryParams.size === 0) {
     return this.url;
   }
-  
+
   const searchParams = new URLSearchParams();
   this.queryParams.forEach((value: string, key: string) => {
     searchParams.append(key, value);
   });
 
   const queryString = searchParams.toString();
-  return this.url.includes('?') ? `${this.url}&${queryString}` : `${this.url}?${queryString}`;
+  return this.url.includes("?")
+    ? `${this.url}&${queryString}`
+    : `${this.url}?${queryString}`;
 };
 export const RequestModel = model<IRequest>("Request", requestSchema);

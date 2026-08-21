@@ -2,6 +2,7 @@ import { Schema, model, Document, Types } from "mongoose";
 
 export interface ICollection extends Document {
   name: string;
+  workspaceId: Types.ObjectId;
   description?: string;
   parentId?: Types.ObjectId;
   variables: Map<string, string>;
@@ -16,6 +17,12 @@ export interface ICollection extends Document {
 
 const collectionSchema = new Schema<ICollection>(
   {
+    workspaceId: {
+      type: Schema.Types.ObjectId,
+      ref: "Workspace",
+      required: true,
+      index: true,
+    },
     name: { type: String, required: true, trim: true, index: true },
     description: { type: String, default: "" },
     parentId: {
@@ -38,7 +45,10 @@ const collectionSchema = new Schema<ICollection>(
   { timestamps: true },
 );
 
-collectionSchema.methods.getVariablesObject = function (): Record<string, string> {
+collectionSchema.methods.getVariablesObject = function (): Record<
+  string,
+  string
+> {
   const obj: Record<string, string> = {};
   this.variables.forEach((val: string, key: string) => {
     obj[key] = val;
@@ -47,10 +57,13 @@ collectionSchema.methods.getVariablesObject = function (): Record<string, string
 };
 
 // Cascade delete: Remove associated requests when a collection is deleted
-collectionSchema.pre('deleteOne', { document: true, query: false }, async function () {
-  await model('Request').deleteMany({ collectionId: this._id });
-  
-});
+collectionSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  async function () {
+    await model("Request").deleteMany({ collectionId: this._id });
+  },
+);
 
 export const CollectionModel = model<ICollection>(
   "Collection",
