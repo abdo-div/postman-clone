@@ -5,6 +5,7 @@ import {
 import { RequestModel } from "../request/request.model.js";
 import { ImportPostmanInput } from "./importer.dto.js";
 import { Types } from "mongoose";
+import { ImportOpenApiInput } from "./openapi.dto.js";
 
 export class ImporterService {
   public async importPostmanCollection(input: ImportPostmanInput) {
@@ -142,5 +143,91 @@ export class ImporterService {
       preRequestScript,
       testScript,
     } as unknown as Partial<any>);
+  }
+
+  public async importOpenApiSpec(input: ImportOpenApiInput) {
+    const { spec, collectionId } = input;
+    const rootParentId = collectionId ? new Types.ObjectId(collectionId) : null;
+
+    const baseUrl =
+      spec.servers && spec.servers.length > 0 ? spec.servers[0].url : "";
+
+    // 1. Create the root Collection container for the OpenAPI API
+    const rootCollection: ICollection = await CollectionModel.create({
+      name: spec.info.title,
+      description: spec.info.description || "",
+      parentId: rootParentId,
+      variables: new Map([["baseUrl", baseUrl]]),
+    } as unknown as Partial<ICollection>);
+
+    const HTTP_METHODS = [
+      "get",
+      "post",
+      "put",
+      "patch",
+      "delete",
+      "options",
+      "head",
+    ];
+
+    // 2. Iterate through paths and methods
+    for (const [pathUrl, pathItem] of Object.entries(spec.paths)) {
+      if (!pathItem || typeof pathItem !== "object") continue;
+
+      for (const method of HTTP_METHODS) {
+        const operation = (pathItem as Record<string, any>)[method];
+        if (!operation) continue;
+
+        const requestName =
+          operation.summary ||
+          operation.operationId ||
+          `${method.toUpperCase()} ${pathUrl}`;
+        const fullUrl = baseUrl ? `{{baseUrl}}${pathUrl}` : pathUrl;
+
+        const headersMap = new Map<string, string>();
+        const queryParamsMap = new Map<string, string>();
+
+        // Parse Parameters (headers & query parameters)
+        const parameters = operation.parameters || [];
+        for (const param of parameters) {
+          if (param.in === "header" && param.name) {
+            headersMap.set(param.name, String(param.schema?.default || ""));
+          } else if (param.in === "query" && param.name) {
+            queryParamsMap.set(param.name, String(param.schema?.default || ""));
+          }
+        }
+
+        // Parse Request Body (JSON handling)
+        let bodyMode: "raw" | "json" | "form-data" | "none" = "none";
+        let rawContent = "";
+
+        if (operation.requestBody?.content) {
+          const jsonContent = operation.requestBody.content["application/json"];
+          if (jsonContent) {
+            bodyMode = "json";
+            if (jsonContent.example) {
+              rawContent = JSON.stringify(jsonContent.example, null, 2);
+            } else {
+              rawContent = "{}";
+            }
+            headersMap.set("Content-Type", "application/json");
+          }
+        }
+
+        // Save generated Request model
+        await RequestModel.create({
+          collectionId: rootCollection._id,
+          name: requestName,
+          method: method.toUpperCase(),
+          url: fullUrl,
+          headers: headersMap,
+          queryParams: queryParamsMap,
+          body: {
+            mode: bodyMode,
+            rawContent,
+          },
+        } as unknown as Partial<any>);
+      }
+    }
   }
 }

@@ -22,6 +22,18 @@ export class ImporterController {
       next(error);
     }
   };
+  public importOpenApi = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const result = await this.importerService.importOpenApiSpec(req.body);
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const importerController = new ImporterController();

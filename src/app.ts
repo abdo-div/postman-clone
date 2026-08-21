@@ -10,6 +10,7 @@ import collectionRouter from "./modules/collection/collection.routes.js";
 import environmentRouter from "./modules/environment/environment.routes.js";
 import historyRouter from "./modules/history/history.routes.js";
 import importerRouter from "./modules/importer/importer.routes.js";
+
 const app: Application = express();
 
 app.use(helmet());
