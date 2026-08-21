@@ -6,9 +6,10 @@ import { errorHandler } from "./middlewares/error.middleware.js";
 import { NotFoundError } from "./errors/app-error.js";
 import executorRoutes from "./modules/executor/executor.routes.js";
 import runnerRouter from "./modules/runner/runner.routes.js";
-import collectionRouter from './modules/collection/collection.routes.js';
-import environmentRouter from './modules/environment/environment.routes.js';
-import historyRouter from './modules/history/history.routes.js';
+import collectionRouter from "./modules/collection/collection.routes.js";
+import environmentRouter from "./modules/environment/environment.routes.js";
+import historyRouter from "./modules/history/history.routes.js";
+import importerRouter from "./modules/importer/importer.routes.js";
 const app: Application = express();
 
 app.use(helmet());
@@ -24,9 +25,10 @@ app.get("/health", (_req, res) => {
 // API v1 Feature Routes
 app.use("/api/v1/executor", executorRoutes);
 app.use("/api/v1/runner", runnerRouter);
-app.use('/api/v1/collections', collectionRouter);
-app.use('/api/v1/environments', environmentRouter);
-app.use('/api/v1/history', historyRouter);
+app.use("/api/v1/collections", collectionRouter);
+app.use("/api/v1/environments", environmentRouter);
+app.use("/api/v1/history", historyRouter);
+app.use("/api/v1/import", importerRouter);
 // 404 Catch-All
 app.use((_req, _res, next) => {
   next(new NotFoundError("The requested endpoint does not exist"));
