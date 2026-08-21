@@ -10,7 +10,7 @@ import collectionRouter from "./modules/collection/collection.routes.js";
 import environmentRouter from "./modules/environment/environment.routes.js";
 import historyRouter from "./modules/history/history.routes.js";
 import importerRouter from "./modules/importer/importer.routes.js";
-
+import workspaceRouter from "./modules/workspace/workspace.routes.js";
 const app: Application = express();
 
 app.use(helmet());
@@ -30,6 +30,7 @@ app.use("/api/v1/collections", collectionRouter);
 app.use("/api/v1/environments", environmentRouter);
 app.use("/api/v1/history", historyRouter);
 app.use("/api/v1/import", importerRouter);
+app.use("/api/v1/workspaces", workspaceRouter);
 // 404 Catch-All
 app.use((_req, _res, next) => {
   next(new NotFoundError("The requested endpoint does not exist"));
