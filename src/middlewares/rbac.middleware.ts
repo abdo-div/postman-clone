@@ -29,6 +29,32 @@ declare global {
   }
 }
 
+/**
+ * Middleware to resolve or mock authenticated user context from request headers
+ */
+export const authUserMiddleware = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  const userIdHeader = req.headers["x-user-id"] as string;
+  const userEmailHeader = req.headers["x-user-email"] as string;
+
+  if (userIdHeader) {
+    req.user = {
+      id: userIdHeader,
+      email: userEmailHeader || "user@example.com",
+    };
+  } else {
+    // Fallback development/testing default user (valid 24 hex char ObjectId)
+    req.user = {
+      id: "507f1f77bcf86cd799439011",
+      email: "developer@postman-clone.local",
+    };
+  }
+  next();
+};
+
 export const authorizeWorkspace = (requiredRole: WorkspaceRole) => {
   return async (
     req: Request,

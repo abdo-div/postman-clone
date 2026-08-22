@@ -1,17 +1,31 @@
-import { Router } from 'express';
-import { historyController } from './history.controller.js';
-import { validate } from '../../middlewares/validate.middleware.js';
+import { Router } from "express";
+import { historyController } from "./history.controller.js";
+import { validate } from "../../middlewares/validate.middleware.js";
 import {
   historyIdParamSchema,
   requestIdParamSchema,
   historyPaginationQuerySchema,
-} from './history.dto.js';
+} from "./history.dto.js";
 
 const router = Router();
 
-router.get('/:id', validate(historyIdParamSchema), historyController.getById);
-router.get('/request/:requestId', validate(requestIdParamSchema), validate(historyPaginationQuerySchema), historyController.getByRequest);
-router.get('/request/:requestId/metrics', validate(requestIdParamSchema), historyController.getMetrics);
-router.delete('/request/:requestId', validate(requestIdParamSchema), historyController.clearRequestHistory);
+// Place specific /request/... paths before generic /:id parameter path to prevent Express route collisions
+router.get(
+  "/request/:requestId",
+  validate(requestIdParamSchema),
+  validate(historyPaginationQuerySchema),
+  historyController.getByRequest,
+);
+router.get(
+  "/request/:requestId/metrics",
+  validate(requestIdParamSchema),
+  historyController.getMetrics,
+);
+router.delete(
+  "/request/:requestId",
+  validate(requestIdParamSchema),
+  historyController.clearRequestHistory,
+);
+router.get("/:id", validate(historyIdParamSchema), historyController.getById);
 
 export default router;

@@ -1,7 +1,7 @@
 import { Schema, model, Document, Types } from "mongoose";
 
 export interface IRequest extends Document {
-  workspaceId: Types.ObjectId;
+  workspaceId?: Types.ObjectId;
   collectionId: Types.ObjectId;
   name: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
@@ -9,13 +9,14 @@ export interface IRequest extends Document {
   headers: Map<string, string>;
   queryParams: Map<string, string>;
   body: {
-    mode: "raw" | "json" | "from-data" | "none";
+    mode: "raw" | "json" | "form-data" | "none";
     rawContent?: string;
   };
   preRequestScript?: string;
   testScript?: string;
   createdAt: Date;
   updatedAt: Date;
+  getFullUrl(): string;
 }
 
 const requestSchema = new Schema<IRequest>(
@@ -23,7 +24,7 @@ const requestSchema = new Schema<IRequest>(
     workspaceId: {
       type: Schema.Types.ObjectId,
       ref: "Workspace",
-      required: true,
+      required: false,
       index: true,
     },
     collectionId: {
@@ -55,7 +56,9 @@ const requestSchema = new Schema<IRequest>(
   },
   { timestamps: true },
 );
-// src/modules/request/request.model.ts
+
+// Indexes
+requestSchema.index({ workspaceId: 1, collectionId: 1 });
 
 // Pre-save hook: Sanitize and format URL string
 requestSchema.pre("save", function () {
@@ -74,10 +77,11 @@ requestSchema.methods.getFullUrl = function (): string {
   this.queryParams.forEach((value: string, key: string) => {
     searchParams.append(key, value);
   });
-requestSchema.index({ workspaceId: 1, collectionId: 1 });
+
   const queryString = searchParams.toString();
   return this.url.includes("?")
     ? `${this.url}&${queryString}`
     : `${this.url}?${queryString}`;
 };
+
 export const RequestModel = model<IRequest>("Request", requestSchema);

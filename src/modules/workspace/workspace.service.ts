@@ -3,7 +3,7 @@ import {
   WorkspaceRole,
   IWorkspace,
 } from "./workspace.model.js";
-import { NotFoundError, BadRequestError } from "../../errors/app-error.js";
+import { NotFoundError } from "../../errors/app-error.js";
 import { Types } from "mongoose";
 
 export class WorkspaceService {

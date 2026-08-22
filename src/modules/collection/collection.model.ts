@@ -2,7 +2,7 @@ import { Schema, model, Document, Types } from "mongoose";
 
 export interface ICollection extends Document {
   name: string;
-  workspaceId: Types.ObjectId;
+  workspaceId?: Types.ObjectId;
   description?: string;
   parentId?: Types.ObjectId;
   variables: Map<string, string>;
@@ -13,6 +13,7 @@ export interface ICollection extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
+  getVariablesObject(): Record<string, string>;
 }
 
 const collectionSchema = new Schema<ICollection>(
@@ -20,7 +21,7 @@ const collectionSchema = new Schema<ICollection>(
     workspaceId: {
       type: Schema.Types.ObjectId,
       ref: "Workspace",
-      required: true,
+      required: false,
       index: true,
     },
     name: { type: String, required: true, trim: true, index: true },
@@ -50,9 +51,11 @@ collectionSchema.methods.getVariablesObject = function (): Record<
   string
 > {
   const obj: Record<string, string> = {};
-  this.variables.forEach((val: string, key: string) => {
-    obj[key] = val;
-  });
+  if (this.variables) {
+    this.variables.forEach((val: string, key: string) => {
+      obj[key] = val;
+    });
+  }
   return obj;
 };
 
@@ -64,7 +67,9 @@ collectionSchema.pre(
     await model("Request").deleteMany({ collectionId: this._id });
   },
 );
+
 collectionSchema.index({ workspaceId: 1, parentId: 1 });
+
 export const CollectionModel = model<ICollection>(
   "Collection",
   collectionSchema,

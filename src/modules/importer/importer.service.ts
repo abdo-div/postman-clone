@@ -229,5 +229,11 @@ export class ImporterService {
         } as unknown as Partial<any>);
       }
     }
+
+    return {
+      success: true,
+      importedCollectionId: rootCollection._id,
+      name: rootCollection.name,
+    };
   }
 }
