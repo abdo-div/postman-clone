@@ -11,19 +11,23 @@ import environmentRouter from "./modules/environment/environment.routes.js";
 import historyRouter from "./modules/history/history.routes.js";
 import importerRouter from "./modules/importer/importer.routes.js";
 import workspaceRouter from "./modules/workspace/workspace.routes.js";
+import { httpLogger } from './middlewares/logger.middleware.js';
+import healthRoutes from './modules/health/health.routes.js';
 import "./modules/runner/runner.worker.js";
 const app: Application = express();
 
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(express.json());
-
+app.use(httpLogger);
+app.use(express.json());
 // Healthcheck Endpoint
 app.get("/health", (_req, res) => {
   res
     .status(200)
     .json({ status: "healthy", timestamp: new Date().toISOString() });
 });
+app.use(healthRoutes);
 // API v1 Feature Routes
 app.use("/api/v1/executor", executorRoutes);
 app.use("/api/v1/runner", runnerRouter);

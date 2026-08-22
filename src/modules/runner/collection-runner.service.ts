@@ -9,6 +9,8 @@ import { NotFoundError } from "../../errors/app-error.js";
 export interface RunCollectionInput {
   collectionId: string;
   environmentId?: string | undefined;
+  onProgress?: (progress: any) => void;
+  
 }
 
 export class CollectionRunnerService {
