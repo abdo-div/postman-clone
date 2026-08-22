@@ -7,8 +7,10 @@ import http from "node:http";
 import app from "./app.js";
 import { env } from "./config/env.config.js";
 import { connectDatabase } from "./config/database.config.js";
+import { initSocketServer } from './config/socket.js';
+import './modules/runner/runner.worker.js';
 const server = http.createServer(app);
-
+initSocketServer(server);
 const startServer = () => {
   connectDatabase().then(() => {
     console.log("✅ Database connection established successfully");
