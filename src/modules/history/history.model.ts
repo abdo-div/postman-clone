@@ -67,4 +67,6 @@ historySchema.statics.getAverageLatency = async function (requestId: Types.Objec
 
   return stats.length > 0 ? Math.round(stats[0].avgLatency) : 0;
 };
+historySchema.index({ requestId: 1, executedAt: -1 });
+historySchema.index({ workspaceId: 1, executedAt: -1 });
 export const HistoryModel = model<IHistory>("History", historySchema);

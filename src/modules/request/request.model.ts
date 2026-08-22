@@ -74,7 +74,7 @@ requestSchema.methods.getFullUrl = function (): string {
   this.queryParams.forEach((value: string, key: string) => {
     searchParams.append(key, value);
   });
-
+requestSchema.index({ workspaceId: 1, collectionId: 1 });
   const queryString = searchParams.toString();
   return this.url.includes("?")
     ? `${this.url}&${queryString}`

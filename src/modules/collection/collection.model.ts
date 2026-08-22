@@ -64,7 +64,7 @@ collectionSchema.pre(
     await model("Request").deleteMany({ collectionId: this._id });
   },
 );
-
+collectionSchema.index({ workspaceId: 1, parentId: 1 });
 export const CollectionModel = model<ICollection>(
   "Collection",
   collectionSchema,
