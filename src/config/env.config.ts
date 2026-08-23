@@ -7,6 +7,7 @@ const envSchema= z.object({
   PORT: z.string().transform((val) => parseInt(val, 10)).default(5000),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   MONGO_URI: z.string().min(1, 'MongoDB URI is required'),
+  DB_NAME: z.string().optional(),
   CORS_ORIGIN: z.string().default('*'),
 });
 

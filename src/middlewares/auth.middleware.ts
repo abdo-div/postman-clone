@@ -9,12 +9,13 @@ export const authenticateToken = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-) => {
+): void => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ error: "Access denied: No token provided" });
+    res.status(401).json({ error: "Access denied: No token provided" });
+    return;
   }
 
   try {
@@ -24,6 +25,7 @@ export const authenticateToken = (
     req.userId = decoded.userId;
     next();
   } catch (err) {
-    return res.status(403).json({ error: "Invalid or expired token" });
+    res.status(403).json({ error: "Invalid or expired token" });
+    return;
   }
 };
