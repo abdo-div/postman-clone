@@ -9,8 +9,9 @@ import {
   enqueueCollectionRunSchema,
   jobIdParamSchema,
 } from "./async-runner.dto.js";
-
+import { authUserMiddleware } from "../../middlewares/rbac.middleware.js";
 const router = Router();
+router.use(authUserMiddleware); // Apply authentication middleware to all runner routes
 
 // Synchronous execution endpoints
 router.post("/run", validate(runTestSchema), runnerController.run);

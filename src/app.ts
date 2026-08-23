@@ -15,7 +15,7 @@ import importerRouter from "./modules/importer/importer.routes.js";
 import workspaceRouter from "./modules/workspace/workspace.routes.js";
 import { httpLogger } from "./middlewares/logger.middleware.js";
 import healthRoutes from "./modules/health/health.routes.js";
-
+import authRoutes from "./routes/auth.routes.js";
 const app: Application = express();
 
 app.use(helmet());
@@ -36,7 +36,7 @@ app.use("/api/v1/environments", environmentRouter);
 app.use("/api/v1/history", historyRouter);
 app.use("/api/v1/import", importerRouter);
 app.use("/api/v1/workspaces", workspaceRouter);
-
+app.use("/api/v1/auth", authRoutes);
 // 404 Catch-All
 app.use((_req, _res, next) => {
   next(new NotFoundError("The requested endpoint does not exist"));
