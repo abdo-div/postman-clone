@@ -1,11 +1,6 @@
-import React from "react";
-import { LandingPage } from "./components/landingPage";
+import React from 'react';
+import { MainWorkbench } from './components/mainWorkbench';
 
 export default function App() {
-  const handleGetStarted = () => {
-    // Placeholder handler until the Auth Modal / Router is implemented
-    console.log("GET STARTED clicked");
-  };
-
-  return <LandingPage onGetStarted={handleGetStarted} />;
+  return <MainWorkbench />;
 }
