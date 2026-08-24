@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import type { EnvironmentListItem } from "./types";
+import type { Environment } from "../../services/environmentService";
 
 interface EnvironmentListPaneProps {
-  environments: EnvironmentListItem[];
+  environments: Environment[];
   activeId: string;
   onSelect: (id: string) => void;
+  onAdd?: () => void;
 }
 
 export const EnvironmentListPane: React.FC<EnvironmentListPaneProps> = ({
   environments,
   activeId,
   onSelect,
+  onAdd,
 }) => {
   const [filter, setFilter] = useState("");
   const visible = environments.filter((env) =>
@@ -21,7 +23,11 @@ export const EnvironmentListPane: React.FC<EnvironmentListPaneProps> = ({
     <div className="flex w-64 shrink-0 flex-col border-r border-outline-variant bg-panel-level-1">
       <div className="flex h-12 items-center justify-between border-b border-outline-variant px-4">
         <span className="font-headline-md text-sm text-on-surface">Environments</span>
-        <button className="text-on-surface-variant transition-colors hover:text-primary-container">
+        <button
+          onClick={onAdd}
+          className="text-on-surface-variant transition-colors hover:text-primary-container"
+          title="New Environment"
+        >
           <span className="material-symbols-outlined text-sm">add</span>
         </button>
       </div>
@@ -61,6 +67,9 @@ export const EnvironmentListPane: React.FC<EnvironmentListPaneProps> = ({
                   check
                 </span>
                 <span>{env.name}</span>
+                {env.isProd && (
+                  <span className="text-[9px] border border-red-400/20 text-red-400 px-1 rounded">PROD</span>
+                )}
               </div>
               {isActive && (
                 <span className="material-symbols-outlined text-sm text-on-surface-variant hover:text-on-surface">

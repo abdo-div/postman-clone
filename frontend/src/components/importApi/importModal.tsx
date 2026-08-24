@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { apiPreview } from "./mockData";
-import type { EndpointMethod } from "./types";
+import { importService } from "../../services/importService";
+import { useCollectionStore } from "../../store/useCollectionStore";
+import { useToastStore } from "../../store/useToastStore";
 
 interface ImportModalProps {
   open: boolean;
@@ -8,196 +9,240 @@ interface ImportModalProps {
   onConfirm?: () => void;
 }
 
-const methodBadgeStyles: Record<EndpointMethod, string> = {
-  GET: "bg-primary/10 text-primary",
-  POST: "bg-secondary/10 text-secondary",
-  PUT: "bg-tertiary/10 text-tertiary",
-  PATCH: "bg-tertiary/10 text-tertiary",
-  DELETE: "bg-error/10 text-error",
-};
-
-const tabs = [
-  { id: "file", label: "File Upload", icon: "upload_file" },
-  { id: "link", label: "Link", icon: "link" },
-  { id: "raw", label: "Raw Text", icon: "data_object" },
-] as const;
-
-type TabId = (typeof tabs)[number]["id"];
+type ImportTab = "file" | "url" | "text" | "curl";
 
 export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onConfirm }) => {
-  const [activeTab, setActiveTab] = useState<TabId>("file");
+  const [activeTab, setActiveTab] = useState<ImportTab>("file");
+  const [rawText, setRawText] = useState("");
+  const [urlInput, setUrlInput] = useState("");
+  const [curlText, setCurlText] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importType, setImportType] = useState<"auto" | "postman" | "openapi">("auto");
+
+  const { collections, addCollection } = useCollectionStore();
+  const { addToast } = useToastStore();
 
   if (!open) return null;
 
+  const handleImportContent = async (content: string, type: "auto" | "postman" | "openapi" | "curl" = importType) => {
+    if (!content.trim()) {
+      addToast({ type: "warning", title: "Empty content", description: "Please provide content to import" });
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const result = await importService.importDefinition(content, type as any);
+      // Add to collection store
+      const newCol = await addCollection(result.collection.name, result.collection.description);
+      // We need to also add the requests
+      const { addRequest } = useCollectionStore.getState();
+      for (const req of result.collection.requests || []) {
+        addRequest(newCol.id, req);
+      }
+
+      addToast({
+        type: "success",
+        title: "Import successful!",
+        description: `Imported "${result.collection.name}" with ${result.requestsCount} request(s)`,
+        duration: 5000,
+      });
+      onConfirm?.();
+      onClose();
+    } catch (err: any) {
+      addToast({
+        type: "error",
+        title: "Import failed",
+        description: err.message || "Could not parse the provided content",
+        duration: 6000,
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    const content = await file.text();
+    await handleImportContent(content, "auto");
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleUrlFetch = async () => {
+    if (!urlInput.trim()) return;
+    setIsImporting(true);
+    try {
+      const res = await fetch(urlInput);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const content = await res.text();
+      await handleImportContent(content, "auto");
+    } catch (err: any) {
+      addToast({ type: "error", title: "Fetch failed", description: err.message });
+      setIsImporting(false);
+    }
+  };
+
+  const tabs: { id: ImportTab; label: string; icon: string }[] = [
+    { id: "file", label: "File / Drag & Drop", icon: "upload_file" },
+    { id: "url", label: "URL", icon: "link" },
+    { id: "text", label: "Raw JSON", icon: "code" },
+    { id: "curl", label: "cURL", icon: "terminal" },
+  ];
+
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-background/80 p-4 backdrop-blur-md">
-      <div className="flex max-h-[921px] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container shadow-2xl">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high/50 px-6 py-4">
-          <h2 className="m-0 font-headline-md text-headline-md text-on-surface">
-            Import API Definition
-          </h2>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-2xl rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-outline-variant p-6 pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-on-surface">Import API Definition</h2>
+            <p className="text-sm text-on-surface-variant mt-0.5">
+              Supports Postman Collection v2.1, OpenAPI 3.0/Swagger, and cURL commands
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
+            className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-container"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex flex-1 flex-col overflow-y-auto">
-          <div className="flex border-b border-outline-variant bg-surface-container-lowest px-4 pt-2">
-            {tabs.map((tab) => {
-              const isActive = tab.id === activeTab;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 font-body-md text-body-md ${
-                    isActive
-                      ? "-mb-[1px] z-10 rounded-t-sm border-l border-r border-t-2 border-outline-variant border-t-primary bg-surface-container text-on-surface"
-                      : "text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-col gap-6 p-6">
-            {activeTab === "file" && (
-              <>
-                <div className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-outline bg-surface-container-lowest p-8 text-center transition-colors duration-200 hover:border-primary">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-highest transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-                    <span className="material-symbols-outlined text-[28px] text-on-surface-variant group-hover:text-primary">
-                      cloud_upload
-                    </span>
-                  </div>
-                  <p className="mb-1 font-body-md text-body-md text-on-surface">
-                    Drop OpenAPI JSON/YAML or Postman Collection
-                  </p>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    or click to browse from your computer
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-body-md text-body-md font-semibold text-on-surface">
-                      Preview
-                    </h3>
-                    <span className="rounded bg-primary/10 px-2 py-0.5 font-code-sm text-code-sm text-primary">
-                      {apiPreview.endpoints.length + apiPreview.extraEndpoints} endpoints found
-                    </span>
-                  </div>
-
-                  <div className="flex items-start gap-4 rounded-lg border border-outline-variant bg-surface-container-highest p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-secondary-container/20">
-                      <span className="material-symbols-outlined text-secondary">api</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <h4 className="m-0 font-body-md text-body-md font-semibold text-on-surface">
-                          {apiPreview.title}
-                        </h4>
-                        <span className="rounded-sm border border-outline-variant px-1.5 font-code-sm text-code-sm text-on-surface-variant">
-                          {apiPreview.spec}
-                        </span>
-                      </div>
-                      <p className="m-0 w-full max-w-md truncate font-body-sm text-body-sm text-on-surface-variant">
-                        {apiPreview.baseUrl}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
-                    <div className="flex items-center border-b border-outline-variant bg-surface-container-high/30 px-2 py-2">
-                      <div className="w-20 font-label-caps text-label-caps text-on-surface-variant">
-                        Method
-                      </div>
-                      <div className="flex-1 font-label-caps text-label-caps text-on-surface-variant">
-                        Path
-                      </div>
-                    </div>
-
-                    <div className="flex max-h-[160px] flex-col overflow-y-auto">
-                      {apiPreview.endpoints.map((endpoint) => (
-                        <div
-                          key={endpoint.id}
-                          className="group flex items-center border-b border-outline-variant/50 px-2 py-1.5 last:border-b-0 hover:bg-surface-container-highest/50"
-                        >
-                          <div className="flex w-20 shrink-0 items-center">
-                            <span
-                              className={`rounded px-1.5 py-0.5 font-code-sm text-code-sm font-bold uppercase ${methodBadgeStyles[endpoint.method]}`}
-                            >
-                              {endpoint.method}
-                            </span>
-                          </div>
-                          <div className="flex-1 truncate font-code-md text-code-md text-on-surface transition-colors group-hover:text-primary-fixed">
-                            {endpoint.path}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="border-t border-outline-variant bg-surface-container-lowest py-2 text-center">
-                      <span className="cursor-pointer font-body-sm text-body-sm text-on-surface-variant transition-colors hover:text-primary">
-                        + {apiPreview.extraEndpoints} more endpoints
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "link" && (
-              <div className="flex flex-col gap-3">
-                <label className="font-label-caps text-label-caps uppercase tracking-widest text-on-surface-variant">
-                  Specification URL
-                </label>
-                <input
-                  type="text"
-                  placeholder="https://api.example.com/openapi.json"
-                  className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-code-sm text-code-sm text-on-surface focus:border-primary focus:outline-none"
-                />
-                <p className="font-body-sm text-body-sm text-on-surface-variant">
-                  Paste a URL to an OpenAPI/Swagger definition or Postman Collection.
-                </p>
-              </div>
-            )}
-
-            {activeTab === "raw" && (
-              <div className="flex flex-col gap-3">
-                <label className="font-label-caps text-label-caps uppercase tracking-widest text-on-surface-variant">
-                  Definition Content
-                </label>
-                <textarea
-                  rows={10}
-                  placeholder='{"openapi": "3.0.0", "info": {"title": "..."}, ...}'
-                  className="w-full resize-none rounded-lg border border-outline-variant bg-surface-container-lowest p-3 font-code-sm text-code-sm text-on-surface focus:border-primary focus:outline-none"
-                />
-              </div>
-            )}
-          </div>
+        {/* Tab bar */}
+        <div className="flex border-b border-outline-variant bg-surface-container-low px-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? "border-primary text-primary font-medium"
+                  : "border-transparent text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-outline-variant bg-surface-container-lowest px-6 py-4">
-          <button
-            onClick={onClose}
-            className="rounded border border-outline-variant px-4 py-2 font-body-md text-body-md text-on-surface transition-colors hover:bg-surface-container-highest"
-          >
+        <div className="p-6 space-y-4">
+          {/* Format selector */}
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-on-surface-variant">Format:</span>
+            {([["auto", "Auto-detect"], ["postman", "Postman v2.1"], ["openapi", "OpenAPI 3.0"]] as const).map(([val, label]) => (
+              <label key={val} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" checked={importType === val} onChange={() => setImportType(val)} className="accent-cyan-400" />
+                <span className={importType === val ? "text-primary" : "text-on-surface-variant"}>{label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* File Tab */}
+          {activeTab === "file" && (
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+                isDragging ? "border-primary bg-primary-container/20" : "border-outline-variant hover:border-outline"
+              }`}
+            >
+              <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3">cloud_upload</span>
+              <p className="text-sm font-medium text-on-surface">Drag & drop a file here</p>
+              <p className="text-xs text-on-surface-variant mt-1">.json, .yaml, .yml files supported</p>
+              <label className="mt-4 cursor-pointer rounded bg-primary-container px-4 py-2 text-sm font-bold text-on-primary-container hover:bg-primary-fixed transition-colors">
+                Choose File
+                <input type="file" accept=".json,.yaml,.yml" className="hidden" onChange={handleFileChange} />
+              </label>
+            </div>
+          )}
+
+          {/* URL Tab */}
+          {activeTab === "url" && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml"
+                  className="flex-1 rounded border border-outline-variant bg-surface-container-low px-3 py-2 font-code-sm text-sm text-on-surface outline-none focus:border-primary"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleUrlFetch(); }}
+                />
+                <button
+                  onClick={handleUrlFetch}
+                  disabled={isImporting || !urlInput.trim()}
+                  className="rounded bg-primary-container px-4 py-2 text-sm font-bold text-on-primary-container hover:bg-primary-fixed transition-colors disabled:opacity-50"
+                >
+                  Fetch
+                </button>
+              </div>
+              <p className="text-xs text-on-surface-variant">Provide a public URL to a Postman collection or OpenAPI spec</p>
+            </div>
+          )}
+
+          {/* Raw Text Tab */}
+          {activeTab === "text" && (
+            <div className="space-y-3">
+              <textarea
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder={`Paste your Postman Collection JSON or OpenAPI spec here...\n\nExample:\n{\n  "info": { "name": "My API", "_postman_id": "...", "schema": "https://schema.getpostman.com/..." },\n  "item": [...]\n}`}
+                className="h-48 w-full resize-none rounded border border-outline-variant bg-surface-container-low p-3 font-code-sm text-sm text-on-surface outline-none focus:border-primary"
+                spellCheck={false}
+              />
+              <button
+                onClick={() => handleImportContent(rawText)}
+                disabled={isImporting || !rawText.trim()}
+                className="w-full rounded bg-primary-container py-2.5 text-sm font-bold text-on-primary-container hover:bg-primary-fixed transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isImporting ? (
+                  <><span className="material-symbols-outlined animate-spin text-sm">progress_activity</span> Importing...</>
+                ) : "Import JSON"}
+              </button>
+            </div>
+          )}
+
+          {/* cURL Tab */}
+          {activeTab === "curl" && (
+            <div className="space-y-3">
+              <textarea
+                value={curlText}
+                onChange={(e) => setCurlText(e.target.value)}
+                placeholder={`Paste cURL command here...\n\ncurl -X POST 'https://api.example.com/users' \\\n  -H 'Content-Type: application/json' \\\n  -H 'Authorization: Bearer {{token}}' \\\n  -d '{"name": "John", "email": "john@example.com"}'`}
+                className="h-48 w-full resize-none rounded border border-outline-variant bg-surface-container-low p-3 font-code-sm text-sm text-on-surface outline-none focus:border-primary"
+                spellCheck={false}
+              />
+              <button
+                onClick={() => handleImportContent(curlText, "curl")}
+                disabled={isImporting || !curlText.trim()}
+                className="w-full rounded bg-primary-container py-2.5 text-sm font-bold text-on-primary-container hover:bg-primary-fixed transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isImporting ? (
+                  <><span className="material-symbols-outlined animate-spin text-sm">progress_activity</span> Importing...</>
+                ) : "Import cURL"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-outline-variant bg-surface-dim px-6 py-3">
+          <p className="text-xs text-on-surface-variant">
+            {collections.length} collection(s) currently in workspace
+          </p>
+          <button onClick={onClose} className="text-sm text-on-surface-variant hover:text-on-surface transition-colors px-4 py-2 rounded hover:bg-surface-container">
             Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex items-center gap-2 rounded bg-primary px-5 py-2 font-body-md text-body-md font-medium text-on-primary shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-primary/90"
-          >
-            <span className="material-symbols-outlined text-[18px]">check</span>
-            Confirm Import
           </button>
         </div>
       </div>

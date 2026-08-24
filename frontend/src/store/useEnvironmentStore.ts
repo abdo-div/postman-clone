@@ -1,0 +1,149 @@
+import { create } from "zustand";
+import {
+  environmentService,
+  type Environment,
+  type EnvironmentVariable,
+} from "../services/environmentService";
+import { interpolateVariables } from "../services/executorService";
+
+interface EnvironmentState {
+  environments: Environment[];
+  activeEnvironmentId: string;
+  isLoading: boolean;
+  loadEnvironments: () => Promise<void>;
+  setActiveEnvironmentId: (id: string) => void;
+  getActiveEnvironment: () => Environment | undefined;
+  getVariablesMap: () => Record<string, string>;
+  interpolate: (text: string) => string;
+  addEnvironment: (name: string, isProd?: boolean) => Environment;
+  updateEnvironmentName: (id: string, name: string) => void;
+  deleteEnvironment: (id: string) => void;
+  addVariable: (envId: string, variable?: Partial<EnvironmentVariable>) => void;
+  updateVariable: (envId: string, varId: string, patch: Partial<EnvironmentVariable>) => void;
+  deleteVariable: (envId: string, varId: string) => void;
+}
+
+export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
+  environments: [],
+  activeEnvironmentId: localStorage.getItem("active_environment_id") || "prod",
+  isLoading: false,
+
+  loadEnvironments: async () => {
+    set({ isLoading: true });
+    const envs = await environmentService.getEnvironments();
+    const activeId = get().activeEnvironmentId;
+    const validActiveId = envs.some((e) => e.id === activeId)
+      ? activeId
+      : envs[0]?.id || "prod";
+
+    set({
+      environments: envs,
+      activeEnvironmentId: validActiveId,
+      isLoading: false,
+    });
+  },
+
+  setActiveEnvironmentId: (id: string) => {
+    localStorage.setItem("active_environment_id", id);
+    set({ activeEnvironmentId: id });
+  },
+
+  getActiveEnvironment: () => {
+    const { environments, activeEnvironmentId } = get();
+    return environments.find((e) => e.id === activeEnvironmentId) || environments[0];
+  },
+
+  getVariablesMap: () => {
+    const active = get().getActiveEnvironment();
+    if (!active) return {};
+    const map: Record<string, string> = {};
+    for (const v of active.variables) {
+      if (v.key && v.key.trim()) {
+        map[v.key.trim()] = v.currentValue ?? v.initialValue ?? "";
+      }
+    }
+    return map;
+  },
+
+  interpolate: (text: string) => {
+    const vars = get().getVariablesMap();
+    return interpolateVariables(text, vars);
+  },
+
+  addEnvironment: (name: string, isProd = false) => {
+    const newEnv: Environment = {
+      id: "env-" + Date.now(),
+      name,
+      isProd,
+      variables: [
+        {
+          id: "v1",
+          key: "baseUrl",
+          initialValue: "https://api.example.com",
+          currentValue: "https://api.example.com",
+          description: "Base API URL",
+        },
+      ],
+    };
+
+    const updated = [...get().environments, newEnv];
+    set({ environments: updated, activeEnvironmentId: newEnv.id });
+    environmentService.saveEnvironments(updated);
+    return newEnv;
+  },
+
+  updateEnvironmentName: (id: string, name: string) => {
+    const updated = get().environments.map((e) => (e.id === id ? { ...e, name } : e));
+    set({ environments: updated });
+    environmentService.saveEnvironments(updated);
+  },
+
+  deleteEnvironment: (id: string) => {
+    const remaining = get().environments.filter((e) => e.id !== id);
+    const newActiveId = remaining[0]?.id || "";
+    set({ environments: remaining, activeEnvironmentId: newActiveId });
+    environmentService.saveEnvironments(remaining);
+  },
+
+  addVariable: (envId: string, variable = {}) => {
+    const updated = get().environments.map((e) => {
+      if (e.id !== envId) return e;
+      const newVar: EnvironmentVariable = {
+        id: "v-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+        key: "",
+        initialValue: "",
+        currentValue: "",
+        secret: false,
+        description: "",
+        ...variable,
+      };
+      return { ...e, variables: [...e.variables, newVar] };
+    });
+    set({ environments: updated });
+    environmentService.saveEnvironments(updated);
+  },
+
+  updateVariable: (envId: string, varId: string, patch: Partial<EnvironmentVariable>) => {
+    const updated = get().environments.map((e) => {
+      if (e.id !== envId) return e;
+      return {
+        ...e,
+        variables: e.variables.map((v) => (v.id === varId ? { ...v, ...patch } : v)),
+      };
+    });
+    set({ environments: updated });
+    environmentService.saveEnvironments(updated);
+  },
+
+  deleteVariable: (envId: string, varId: string) => {
+    const updated = get().environments.map((e) => {
+      if (e.id !== envId) return e;
+      return {
+        ...e,
+        variables: e.variables.filter((v) => v.id !== varId),
+      };
+    });
+    set({ environments: updated });
+    environmentService.saveEnvironments(updated);
+  },
+}));

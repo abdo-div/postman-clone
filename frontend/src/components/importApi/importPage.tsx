@@ -5,9 +5,10 @@ import { ImportModal } from "./importModal";
 
 interface ImportPageProps {
   onExit?: () => void;
+  onImportSuccess?: () => void;
 }
 
-export const ImportPage: React.FC<ImportPageProps> = ({ onExit }) => {
+export const ImportPage: React.FC<ImportPageProps> = ({ onExit, onImportSuccess }) => {
   const [open, setOpen] = useState(true);
 
   return (
@@ -28,10 +29,11 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onExit }) => {
 
       <ImportModal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setOpen(false); onExit?.(); }}
         onConfirm={() => {
-          console.log("Confirm import");
           setOpen(false);
+          onImportSuccess?.();
+          onExit?.();
         }}
       />
     </div>

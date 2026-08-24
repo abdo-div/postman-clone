@@ -16,6 +16,8 @@ const ROLE_HIERARCHY: Record<WorkspaceRole, number> = {
   [WorkspaceRole.OWNER]: 3,
 };
 
+import jwt from "jsonwebtoken";
+
 export interface AuthenticatedUser {
   id: string;
   email: string;
@@ -30,15 +32,36 @@ declare global {
 }
 
 /**
- * Middleware to resolve or mock authenticated user context from request headers
+ * Middleware to resolve or mock authenticated user context from JWT token or request headers
  */
 export const authUserMiddleware = (
   req: Request,
   _res: Response,
   next: NextFunction,
 ): void => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
   const userIdHeader = req.headers["x-user-id"] as string;
   const userEmailHeader = req.headers["x-user-email"] as string;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_key_123") as {
+        userId?: string;
+        id?: string;
+        email?: string;
+      };
+      if (decoded && (decoded.userId || decoded.id)) {
+        req.user = {
+          id: decoded.userId || decoded.id || "507f1f77bcf86cd799439011",
+          email: decoded.email || userEmailHeader || "user@example.com",
+        };
+        return next();
+      }
+    } catch {
+      // If token is invalid, fallback to header or dev user
+    }
+  }
 
   if (userIdHeader) {
     req.user = {

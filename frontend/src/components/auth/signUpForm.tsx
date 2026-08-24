@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAuthStore } from "../../store/useAuthStore";
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -13,6 +14,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [localError, setLocalError] = useState("");
+  const { register, guestLogin, isLoading, error, clearError } = useAuthStore();
 
   const rules = [
     { label: "8+ characters", valid: password.length >= 8 },
@@ -20,14 +23,41 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
     { label: "Contains an uppercase letter", valid: /[A-Z]/.test(password) },
   ];
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+    setLocalError("");
+
+    if (password !== confirmPassword) {
+      setLocalError("Passwords do not match");
+      return;
+    }
+    if (rules.some((r) => !r.valid)) {
+      setLocalError("Password does not meet requirements");
+      return;
+    }
+
+    const ok = await register({ name: fullName, email, password });
+    if (ok) onSuccess?.();
+  };
+
+  const displayError = localError || error;
+
   return (
     <>
       <h1 className="mb-2 font-headline-lg text-headline-lg text-on-surface">Build better APIs.</h1>
-      <p className="mb-10 font-body-md text-body-md text-on-surface-variant">
+      <p className="mb-8 font-body-md text-body-md text-on-surface-variant">
         Create your workspace and start building, testing, and automating your API workflows.
       </p>
 
-      <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); onSuccess?.(); }}>
+      {displayError && (
+        <div className="mb-4 flex items-center gap-2 rounded border border-error/40 bg-error-container/50 px-3 py-2.5 text-sm text-error">
+          <span className="material-symbols-outlined text-sm">error</span>
+          {displayError}
+        </div>
+      )}
+
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="fullName" className="font-label-caps text-label-caps text-on-surface-variant">
             Full Name
@@ -110,10 +140,29 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
 
         <button
           type="submit"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xs bg-primary py-3 font-body-md text-body-md font-bold text-on-primary shadow-[0_0_15px_rgba(76,215,246,0.15)] transition-colors hover:bg-surface-tint"
+          disabled={isLoading}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xs bg-primary py-3 font-body-md text-body-md font-bold text-on-primary shadow-[0_0_15px_rgba(76,215,246,0.15)] transition-colors hover:bg-surface-tint disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          CREATE ACCOUNT
-          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+          {isLoading ? (
+            <>
+              <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+              CREATING ACCOUNT...
+            </>
+          ) : (
+            <>
+              CREATE ACCOUNT
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { guestLogin(); onSuccess?.(); }}
+          className="flex w-full items-center justify-center gap-2 rounded-xs border border-outline-variant py-2.5 font-body-sm text-body-sm text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+        >
+          <span className="material-symbols-outlined text-sm">person</span>
+          Continue as Guest
         </button>
       </form>
 
@@ -126,7 +175,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
       <div className="mt-6 flex gap-3">
         <button
           type="button"
-          onClick={() => console.log("GitHub sign-up clicked")}
+          onClick={() => { guestLogin(); onSuccess?.(); }}
           className="flex flex-1 items-center justify-center gap-2 rounded-xs border border-outline-variant bg-surface-container-low py-2.5 transition-colors hover:bg-surface-container-highest"
         >
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-on-surface">
@@ -136,7 +185,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
         </button>
         <button
           type="button"
-          onClick={() => console.log("Google sign-up clicked")}
+          onClick={() => { guestLogin(); onSuccess?.(); }}
           className="flex flex-1 items-center justify-center gap-2 rounded-xs border border-outline-variant bg-surface-container-low py-2.5 transition-colors hover:bg-surface-container-highest"
         >
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
@@ -155,10 +204,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
         </span>
         <a
           href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            onSwitchToSignIn?.();
-          }}
+          onClick={(e) => { e.preventDefault(); onSwitchToSignIn?.(); }}
           className="ml-1 font-body-md text-body-md font-semibold text-primary hover:underline"
         >
           Sign in
