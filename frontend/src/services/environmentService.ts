@@ -16,86 +16,15 @@ export interface Environment {
   variables: EnvironmentVariable[];
 }
 
-const DEFAULT_ENVIRONMENTS: Environment[] = [
-  {
-    id: "prod",
-    name: "Production",
-    isProd: true,
-    variables: [
-      {
-        id: "1",
-        key: "baseUrl",
-        initialValue: "https://jsonplaceholder.typicode.com",
-        currentValue: "https://jsonplaceholder.typicode.com",
-        description: "Primary Production API Base URL",
-      },
-      {
-        id: "2",
-        key: "authToken",
-        initialValue: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        currentValue: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        secret: true,
-        description: "Production API Bearer Token",
-      },
-      {
-        id: "3",
-        key: "apiVersion",
-        initialValue: "v1",
-        currentValue: "v1",
-        description: "Active API release version",
-      },
-      {
-        id: "4",
-        key: "timeout",
-        initialValue: "5000",
-        currentValue: "5000",
-        description: "HTTP request timeout in ms",
-      },
-    ],
-  },
-  {
-    id: "staging",
-    name: "Staging (US-East)",
-    isProd: false,
-    variables: [
-      {
-        id: "s1",
-        key: "baseUrl",
-        initialValue: "https://staging-api.example.com",
-        currentValue: "https://staging-api.example.com",
-        description: "Staging cluster endpoint",
-      },
-      {
-        id: "s2",
-        key: "authToken",
-        initialValue: "stg_secret_998844",
-        currentValue: "stg_secret_998844",
-        secret: true,
-      },
-    ],
-  },
-  {
-    id: "local",
-    name: "Local Development",
-    isProd: false,
-    variables: [
-      {
-        id: "l1",
-        key: "baseUrl",
-        initialValue: "http://localhost:5000",
-        currentValue: "http://localhost:5000",
-        description: "Local Express API Server",
-      },
-      {
-        id: "l2",
-        key: "authToken",
-        initialValue: "dev_mock_token_123",
-        currentValue: "dev_mock_token_123",
-        secret: true,
-      },
-    ],
-  },
-];
+function variablesToMap(vars: EnvironmentVariable[] = []): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const v of vars) {
+    if (v.key && v.key.trim()) {
+      map[v.key.trim()] = v.currentValue ?? v.initialValue ?? "";
+    }
+  }
+  return map;
+}
 
 export const environmentService = {
   async getEnvironments(): Promise<Environment[]> {
@@ -103,7 +32,7 @@ export const environmentService = {
       const res = await apiClient.get<{ success: boolean; data: any[] }>("/environments");
       const list = res.data?.data || res.data;
       if (Array.isArray(list) && list.length > 0) {
-        return list.map((e) => ({
+        const formatted = list.map((e) => ({
           id: e._id || e.id,
           name: e.name,
           isProd: e.name.toLowerCase().includes("prod"),
@@ -122,9 +51,13 @@ export const environmentService = {
                   key: k,
                   initialValue: String(v),
                   currentValue: String(v),
+                  secret: false,
+                  description: "",
                 }))
               : [],
         }));
+        localStorage.setItem("postman_environments", JSON.stringify(formatted));
+        return formatted;
       }
     } catch {
       // Local fallback
@@ -138,7 +71,51 @@ export const environmentService = {
         // ignore
       }
     }
-    return DEFAULT_ENVIRONMENTS;
+    return [];
+  },
+
+  async createEnvironment(name: string, isProd = false, variables: EnvironmentVariable[] = []): Promise<Environment> {
+    const newEnv: Environment = {
+      id: "env-" + Date.now(),
+      name,
+      isProd,
+      variables,
+    };
+
+    try {
+      const res = await apiClient.post("/environments", {
+        name,
+        isGlobal: false,
+        variables: variablesToMap(variables),
+      });
+      const created = res.data?.data || res.data;
+      if (created?._id || created?.id) {
+        newEnv.id = created._id || created.id;
+      }
+    } catch {
+      // Local fallback
+    }
+
+    return newEnv;
+  },
+
+  async updateEnvironment(id: string, name: string, variables: EnvironmentVariable[]): Promise<void> {
+    try {
+      await apiClient.patch(`/environments/${id}`, {
+        name,
+        variables: variablesToMap(variables),
+      });
+    } catch {
+      // Local fallback
+    }
+  },
+
+  async deleteEnvironment(id: string): Promise<void> {
+    try {
+      await apiClient.delete(`/environments/${id}`);
+    } catch {
+      // Local fallback
+    }
   },
 
   async saveEnvironments(envs: Environment[]): Promise<void> {

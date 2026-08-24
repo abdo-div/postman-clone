@@ -28,6 +28,11 @@ export async function validateTargetUrl(rawUrl: string): Promise<void> {
     throw new ForbiddenError(`Unsupported URL protocol: ${parsedUrl.protocol}`);
   }
 
+  const allowLocal = process.env.ALLOW_LOCAL_REQUESTS === 'true' || process.env.NODE_ENV === 'development';
+  if (allowLocal) {
+    return;
+  }
+
   const hostname = parsedUrl.hostname;
 
   // Block obvious localhost aliases

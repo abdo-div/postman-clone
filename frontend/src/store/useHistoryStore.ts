@@ -6,9 +6,9 @@ interface HistoryState {
   searchQuery: string;
   filterMethod: string;
   filterStatus: string;
-  load: () => void;
-  addItem: (item: Omit<HistoryItem, "id" | "timestamp">) => HistoryItem;
-  clearAll: () => void;
+  load: () => Promise<void>;
+  addItem: (item: Omit<HistoryItem, "id" | "timestamp">) => Promise<HistoryItem>;
+  clearAll: () => Promise<void>;
   setSearchQuery: (q: string) => void;
   setFilterMethod: (m: string) => void;
   setFilterStatus: (s: string) => void;
@@ -21,19 +21,19 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   filterMethod: "ALL",
   filterStatus: "ALL",
 
-  load: () => {
-    const items = historyService.getHistory();
+  load: async () => {
+    const items = await historyService.getHistory();
     set({ items });
   },
 
-  addItem: (item) => {
-    const newItem = historyService.addHistoryItem(item);
-    set((s) => ({ items: [newItem, ...s.items] }));
+  addItem: async (item) => {
+    const newItem = await historyService.addHistoryItem(item);
+    set((s) => ({ items: [newItem, ...s.items.filter((i) => i.id !== newItem.id)] }));
     return newItem;
   },
 
-  clearAll: () => {
-    historyService.clearHistory();
+  clearAll: async () => {
+    await historyService.clearHistory();
     set({ items: [] });
   },
 

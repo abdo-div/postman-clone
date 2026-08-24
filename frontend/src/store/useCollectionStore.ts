@@ -7,10 +7,12 @@ interface CollectionState {
   activeRequestId: string | null;
   loadCollections: () => Promise<void>;
   addCollection: (name: string, description?: string) => Promise<Collection>;
-  deleteCollection: (id: string) => void;
-  addRequest: (collectionId: string, request?: Partial<RequestItem>) => RequestItem;
-  updateRequest: (collectionId: string, request: RequestItem) => void;
-  deleteRequest: (collectionId: string, requestId: string) => void;
+  updateCollection: (id: string, name: string, description?: string) => Promise<void>;
+  deleteCollection: (id: string) => Promise<void>;
+  addRequest: (collectionId: string, request?: Partial<RequestItem>) => Promise<RequestItem>;
+  updateRequest: (collectionId: string, request: RequestItem) => Promise<void>;
+  duplicateRequest: (collectionId: string, requestId: string) => Promise<RequestItem | null>;
+  deleteRequest: (collectionId: string, requestId: string) => Promise<void>;
   setActiveRequestId: (id: string | null) => void;
   getActiveRequest: () => RequestItem | null;
   getRequestById: (id: string) => RequestItem | null;
@@ -35,8 +37,15 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     return newCol;
   },
 
-  deleteCollection: (id: string) => {
-    collectionService.deleteCollection(id);
+  updateCollection: async (id: string, name: string, description = "") => {
+    set((state) => ({
+      collections: state.collections.map((c) => (c.id === id ? { ...c, name, description } : c)),
+    }));
+    await collectionService.updateCollection(id, name, description);
+    get().saveCollectionsLocally();
+  },
+
+  deleteCollection: async (id: string) => {
     set((state) => ({
       collections: state.collections.filter((c) => c.id !== id),
       activeRequestId:
@@ -47,27 +56,12 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
           ? null
           : state.activeRequestId,
     }));
+    await collectionService.deleteCollection(id);
     get().saveCollectionsLocally();
   },
 
-  addRequest: (collectionId: string, partial: Partial<RequestItem> = {}) => {
-    const newReq: RequestItem = {
-      id: "req-" + Date.now(),
-      name: partial.name || "New Request",
-      collectionId,
-      method: partial.method || "GET",
-      url: partial.url || "",
-      headers: partial.headers || [
-        { id: "h1", enabled: true, key: "Content-Type", value: "application/json", description: "" },
-      ],
-      queryParams: partial.queryParams || [],
-      bodyType: partial.bodyType || "none",
-      body: partial.body || "",
-      auth: partial.auth || { type: "none" },
-      testsScript: partial.testsScript || "",
-      preRequestScript: partial.preRequestScript || "",
-      ...partial,
-    };
+  addRequest: async (collectionId: string, partial: Partial<RequestItem> = {}) => {
+    const newReq = await collectionService.createRequest(collectionId, partial);
 
     set((state) => ({
       collections: state.collections.map((c) =>
@@ -81,7 +75,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     return newReq;
   },
 
-  updateRequest: (collectionId: string, request: RequestItem) => {
+  updateRequest: async (collectionId: string, request: RequestItem) => {
     set((state) => ({
       collections: state.collections.map((c) =>
         c.id === collectionId
@@ -94,10 +88,31 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
           : c,
       ),
     }));
+    await collectionService.updateRequest(request.id, request);
     get().saveCollectionsLocally();
   },
 
-  deleteRequest: (collectionId: string, requestId: string) => {
+  duplicateRequest: async (collectionId: string, requestId: string) => {
+    const orig = get().getRequestById(requestId);
+    if (!orig) return null;
+
+    const clonedPartial: Partial<RequestItem> = {
+      name: `${orig.name} (Copy)`,
+      method: orig.method,
+      url: orig.url,
+      headers: orig.headers ? [...orig.headers.map((h) => ({ ...h, id: "h-" + Math.random().toString(36).substring(2, 6) }))] : [],
+      queryParams: orig.queryParams ? [...orig.queryParams.map((p) => ({ ...p, id: "p-" + Math.random().toString(36).substring(2, 6) }))] : [],
+      bodyType: orig.bodyType,
+      body: orig.body,
+      auth: orig.auth ? { ...orig.auth } : { type: "none" },
+      testsScript: orig.testsScript,
+      preRequestScript: orig.preRequestScript,
+    };
+
+    return await get().addRequest(collectionId, clonedPartial);
+  },
+
+  deleteRequest: async (collectionId: string, requestId: string) => {
     set((state) => ({
       collections: state.collections.map((c) =>
         c.id === collectionId
@@ -106,6 +121,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
       ),
       activeRequestId: state.activeRequestId === requestId ? null : state.activeRequestId,
     }));
+    await collectionService.deleteRequest(requestId);
     get().saveCollectionsLocally();
   },
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { TopNavBar } from "./topNavBar";
 import { SideNavBar } from "./sideNavBar";
 import { EnvironmentListPane } from "./environmentListPane";
@@ -8,10 +8,11 @@ import { useToastStore } from "../../store/useToastStore";
 
 interface EnvironmentPageProps {
   onExit?: () => void;
+  onNavigate?: (view: string) => void;
   onImport?: () => void;
 }
 
-export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onImport }) => {
+export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onNavigate, onImport }) => {
   const { environments, activeEnvironmentId, setActiveEnvironmentId, loadEnvironments, addEnvironment, isLoading } = useEnvironmentStore();
   const { addToast } = useToastStore();
 
@@ -21,20 +22,20 @@ export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onImpo
 
   const active = environments.find((e) => e.id === activeEnvironmentId) || environments[0];
 
-  const handleAddEnvironment = () => {
-    const name = prompt("Environment name:");
+  const handleAddEnvironment = async () => {
+    const name = prompt("Enter Environment name (e.g. Staging, Production):");
     if (name && name.trim()) {
-      addEnvironment(name.trim());
-      addToast({ type: "success", title: "Environment created", description: name.trim() });
+      const created = await addEnvironment(name.trim());
+      addToast({ type: "success", title: "Environment created", description: created.name });
     }
   };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-950 font-body-md text-on-surface selection:bg-primary-container selection:text-on-primary-container">
-      <TopNavBar onBrandClick={onExit} onImportClick={onImport} />
+      <TopNavBar onBrandClick={onExit} onNavigate={onNavigate} onImportClick={onImport} />
 
       <div className="flex flex-1 overflow-hidden">
-        <SideNavBar />
+        <SideNavBar onNavigate={onNavigate} />
 
         <main className="flex flex-1 overflow-hidden">
           {isLoading ? (

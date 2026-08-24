@@ -144,7 +144,6 @@ async function clientSideExecute(
     };
   } catch (error: any) {
     clearTimeout(timeout);
-    const durationMs = Math.round(performance.now() - startTime);
     if (error.name === "AbortError") {
       throw new Error(`Request timed out after ${payload.timeoutMs || 10000}ms`);
     }

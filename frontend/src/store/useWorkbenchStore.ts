@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import type { HeaderItem, ParamItem } from "../services/collectionService";
-import type { ExecutionResponseData, TestAssertionResult } from "../services/executorService";
+import type { TestAssertionResult } from "../services/executorService";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "HEAD";
 export type BodyType = "none" | "json" | "raw" | "form-data";
 export type AuthType = "none" | "bearer" | "basic" | "api-key";
-export type RequestTab = "Params" | "Headers" | "Body" | "Auth" | "Tests" | "Pre-request Script";
+export type RequestTab = "Params" | "Headers" | "Body" | "Auth" | "Pre-request Script" | "Tests";
 export type ResponseTab = "Body" | "Headers" | "Test Results";
 export type ResponseBodyView = "Pretty" | "Raw" | "Preview";
 
@@ -54,6 +54,9 @@ interface WorkbenchState {
   // Actions - request
   setMethod: (m: HttpMethod) => void;
   setUrl: (url: string) => void;
+  setRequestName: (name: string) => void;
+  setLinkedCollectionId: (id: string | null) => void;
+  setLinkedRequestId: (id: string | null) => void;
   setParam: (id: string, field: keyof ParamItem, val: any) => void;
   addParam: () => void;
   deleteParam: (id: string) => void;
@@ -132,6 +135,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   setMethod: (m) => set({ method: m, hasUnsavedChanges: true }),
   setUrl: (url) => set({ url, hasUnsavedChanges: true }),
+  setRequestName: (name) => set({ requestName: name, hasUnsavedChanges: true }),
+  setLinkedCollectionId: (id) => set({ linkedCollectionId: id }),
+  setLinkedRequestId: (id) => set({ linkedRequestId: id }),
 
   setParam: (id, field, val) =>
     set((s) => ({

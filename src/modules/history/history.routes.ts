@@ -9,7 +9,12 @@ import {
 
 const router = Router();
 
-// Place specific /request/... paths before generic /:id parameter path to prevent Express route collisions
+// General history collection routes
+router.get("/", historyController.getAll);
+router.post("/", historyController.create);
+router.delete("/", historyController.clearAll);
+
+// Specific /request/... paths before generic /:id parameter path to prevent Express route collisions
 router.get(
   "/request/:requestId",
   validate(requestIdParamSchema),

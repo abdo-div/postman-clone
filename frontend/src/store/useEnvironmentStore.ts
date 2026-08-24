@@ -15,17 +15,18 @@ interface EnvironmentState {
   getActiveEnvironment: () => Environment | undefined;
   getVariablesMap: () => Record<string, string>;
   interpolate: (text: string) => string;
-  addEnvironment: (name: string, isProd?: boolean) => Environment;
-  updateEnvironmentName: (id: string, name: string) => void;
-  deleteEnvironment: (id: string) => void;
+  addEnvironment: (name: string, isProd?: boolean) => Promise<Environment>;
+  updateEnvironmentName: (id: string, name: string) => Promise<void>;
+  deleteEnvironment: (id: string) => Promise<void>;
   addVariable: (envId: string, variable?: Partial<EnvironmentVariable>) => void;
   updateVariable: (envId: string, varId: string, patch: Partial<EnvironmentVariable>) => void;
   deleteVariable: (envId: string, varId: string) => void;
+  saveEnvironmentChanges: (envId: string) => Promise<void>;
 }
 
 export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
   environments: [],
-  activeEnvironmentId: localStorage.getItem("active_environment_id") || "prod",
+  activeEnvironmentId: localStorage.getItem("active_environment_id") || "",
   isLoading: false,
 
   loadEnvironments: async () => {
@@ -34,7 +35,7 @@ export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
     const activeId = get().activeEnvironmentId;
     const validActiveId = envs.some((e) => e.id === activeId)
       ? activeId
-      : envs[0]?.id || "prod";
+      : envs[0]?.id || "";
 
     set({
       environments: envs,
@@ -70,39 +71,40 @@ export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
     return interpolateVariables(text, vars);
   },
 
-  addEnvironment: (name: string, isProd = false) => {
-    const newEnv: Environment = {
-      id: "env-" + Date.now(),
-      name,
-      isProd,
-      variables: [
-        {
-          id: "v1",
-          key: "baseUrl",
-          initialValue: "https://api.example.com",
-          currentValue: "https://api.example.com",
-          description: "Base API URL",
-        },
-      ],
-    };
+  addEnvironment: async (name: string, isProd = false) => {
+    const defaultVars: EnvironmentVariable[] = [
+      {
+        id: "v1",
+        key: "baseUrl",
+        initialValue: "https://jsonplaceholder.typicode.com",
+        currentValue: "https://jsonplaceholder.typicode.com",
+        description: "Base API URL",
+      },
+    ];
 
+    const newEnv = await environmentService.createEnvironment(name, isProd, defaultVars);
     const updated = [...get().environments, newEnv];
     set({ environments: updated, activeEnvironmentId: newEnv.id });
     environmentService.saveEnvironments(updated);
     return newEnv;
   },
 
-  updateEnvironmentName: (id: string, name: string) => {
+  updateEnvironmentName: async (id: string, name: string) => {
+    const env = get().environments.find((e) => e.id === id);
     const updated = get().environments.map((e) => (e.id === id ? { ...e, name } : e));
     set({ environments: updated });
     environmentService.saveEnvironments(updated);
+    if (env) {
+      await environmentService.updateEnvironment(id, name, env.variables);
+    }
   },
 
-  deleteEnvironment: (id: string) => {
+  deleteEnvironment: async (id: string) => {
     const remaining = get().environments.filter((e) => e.id !== id);
     const newActiveId = remaining[0]?.id || "";
     set({ environments: remaining, activeEnvironmentId: newActiveId });
     environmentService.saveEnvironments(remaining);
+    await environmentService.deleteEnvironment(id);
   },
 
   addVariable: (envId: string, variable = {}) => {
@@ -121,6 +123,10 @@ export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
     });
     set({ environments: updated });
     environmentService.saveEnvironments(updated);
+    const env = updated.find((e) => e.id === envId);
+    if (env) {
+      environmentService.updateEnvironment(envId, env.name, env.variables);
+    }
   },
 
   updateVariable: (envId: string, varId: string, patch: Partial<EnvironmentVariable>) => {
@@ -133,6 +139,10 @@ export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
     });
     set({ environments: updated });
     environmentService.saveEnvironments(updated);
+    const env = updated.find((e) => e.id === envId);
+    if (env) {
+      environmentService.updateEnvironment(envId, env.name, env.variables);
+    }
   },
 
   deleteVariable: (envId: string, varId: string) => {
@@ -145,5 +155,17 @@ export const useEnvironmentStore = create<EnvironmentState>((set, get) => ({
     });
     set({ environments: updated });
     environmentService.saveEnvironments(updated);
+    const env = updated.find((e) => e.id === envId);
+    if (env) {
+      environmentService.updateEnvironment(envId, env.name, env.variables);
+    }
+  },
+
+  saveEnvironmentChanges: async (envId: string) => {
+    const env = get().environments.find((e) => e.id === envId);
+    if (env) {
+      await environmentService.updateEnvironment(envId, env.name, env.variables);
+      environmentService.saveEnvironments(get().environments);
+    }
   },
 }));

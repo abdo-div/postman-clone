@@ -55,113 +55,25 @@ export interface Collection {
   updatedAt?: string;
 }
 
-const DEFAULT_COLLECTIONS: Collection[] = [
-  {
-    id: "col-users",
-    name: "User Authentication & Profiles",
-    description: "Endpoints for signup, token verification, and user management",
-    requests: [
-      {
-        id: "req-1",
-        name: "List Users",
-        collectionId: "col-users",
-        method: "GET",
-        url: "https://jsonplaceholder.typicode.com/users",
-        headers: [
-          { id: "h1", enabled: true, key: "Content-Type", value: "application/json", description: "" },
-          { id: "h2", enabled: true, key: "Accept", value: "application/json", description: "" },
-        ],
-        queryParams: [
-          { id: "p1", enabled: true, key: "_limit", value: "10", description: "Limit number of users" },
-        ],
-        bodyType: "none",
-        testsScript: `pm.test("Status code is 200", function () {
-    pm.response.to.have.status(200);
-});
+function headersToMap(headers: HeaderItem[] = []): Record<string, string> {
+  const res: Record<string, string> = {};
+  for (const h of headers) {
+    if (h.enabled && h.key && h.key.trim()) {
+      res[h.key.trim()] = h.value;
+    }
+  }
+  return res;
+}
 
-pm.test("Response is an array with users", function () {
-    const data = pm.response.json();
-    pm.expect(data).to.be.a("array");
-    pm.expect(data.length).to.be.above(0);
-});
-
-pm.test("Response time is under 800ms", function () {
-    pm.expect(pm.response.responseTime).to.be.below(800);
-});`,
-      },
-      {
-        id: "req-2",
-        name: "Get User By ID",
-        collectionId: "col-users",
-        method: "GET",
-        url: "https://jsonplaceholder.typicode.com/users/1",
-        headers: [
-          { id: "h1", enabled: true, key: "Accept", value: "application/json", description: "" },
-        ],
-        queryParams: [],
-        bodyType: "none",
-        testsScript: `pm.test("Status code is 200", function () {
-    pm.response.to.have.status(200);
-});
-
-pm.test("User has name and email", function () {
-    const data = pm.response.json();
-    pm.expect(data).to.have.property("name");
-    pm.expect(data).to.have.property("email");
-});`,
-      },
-      {
-        id: "req-3",
-        name: "Create User Post",
-        collectionId: "col-users",
-        method: "POST",
-        url: "https://jsonplaceholder.typicode.com/posts",
-        headers: [
-          { id: "h1", enabled: true, key: "Content-Type", value: "application/json", description: "" },
-        ],
-        queryParams: [],
-        bodyType: "json",
-        body: JSON.stringify(
-          {
-            title: "Dynamic API Architecture",
-            body: "Testing seamless request execution with test suites.",
-            userId: 1,
-          },
-          null,
-          2,
-        ),
-        testsScript: `pm.test("Status is 201 Created", function () {
-    pm.response.to.have.status(201);
-});
-
-pm.test("Post ID is returned", function () {
-    const data = pm.response.json();
-    pm.expect(data).to.have.property("id");
-});`,
-      },
-    ],
-  },
-  {
-    id: "col-orders",
-    name: "Payment & Checkout API",
-    description: "Payment gateway integration, webhooks, and invoice generation",
-    requests: [
-      {
-        id: "req-4",
-        name: "Health Check",
-        collectionId: "col-orders",
-        method: "GET",
-        url: "https://jsonplaceholder.typicode.com/todos/1",
-        headers: [],
-        queryParams: [],
-        bodyType: "none",
-        testsScript: `pm.test("Status is 200", function () {
-    pm.response.to.have.status(200);
-});`,
-      },
-    ],
-  },
-];
+function paramsToMap(params: ParamItem[] = []): Record<string, string> {
+  const res: Record<string, string> = {};
+  for (const p of params) {
+    if (p.enabled && p.key && p.key.trim()) {
+      res[p.key.trim()] = p.value;
+    }
+  }
+  return res;
+}
 
 export const collectionService = {
   async getCollections(): Promise<Collection[]> {
@@ -169,16 +81,32 @@ export const collectionService = {
       const res = await apiClient.get<{ success: boolean; data: any[] }>("/collections");
       const list = res.data?.data || res.data;
       if (Array.isArray(list) && list.length > 0) {
-        return list.map((c) => ({
+        const formatted = list.map((c) => ({
           id: c._id || c.id,
           name: c.name,
-          description: c.description,
-          requests: c.requests || [],
+          description: c.description || "",
+          workspaceId: c.workspaceId,
+          requests: (c.requests || []).map((r: any) => ({
+            id: r._id || r.id,
+            name: r.name,
+            collectionId: c._id || c.id,
+            method: r.method || "GET",
+            url: r.url || "",
+            headers: Array.isArray(r.headers) ? r.headers : [],
+            queryParams: Array.isArray(r.queryParams) ? r.queryParams : [],
+            bodyType: r.bodyType || r.body?.mode || "none",
+            body: r.body || (typeof r.body === "object" ? r.body?.rawContent : "") || "",
+            testsScript: r.testsScript || r.testScript || "",
+            preRequestScript: r.preRequestScript || "",
+            auth: r.auth || { type: "none" },
+          })),
           folders: c.folders || [],
         }));
+        localStorage.setItem("postman_collections", JSON.stringify(formatted));
+        return formatted;
       }
-    } catch (e) {
-      console.warn("Backend collections not reachable, using local storage/fallback");
+    } catch {
+      console.warn("Backend collections unreachable, reading from localStorage/cache");
     }
 
     const saved = localStorage.getItem("postman_collections");
@@ -189,7 +117,7 @@ export const collectionService = {
         // ignore
       }
     }
-    return DEFAULT_COLLECTIONS;
+    return [];
   },
 
   async createCollection(name: string, description = ""): Promise<Collection> {
@@ -208,10 +136,18 @@ export const collectionService = {
         newCol.id = created._id || created.id;
       }
     } catch {
-      // Handled locally
+      // Local fallback
     }
 
     return newCol;
+  },
+
+  async updateCollection(id: string, name: string, description = ""): Promise<void> {
+    try {
+      await apiClient.patch(`/collections/${id}`, { name, description });
+    } catch {
+      // ignore
+    }
   },
 
   async deleteCollection(id: string): Promise<void> {
@@ -222,22 +158,75 @@ export const collectionService = {
     }
   },
 
-  async saveRequest(colId: string, request: RequestItem): Promise<RequestItem> {
+  async createRequest(colId: string, req: Partial<RequestItem>): Promise<RequestItem> {
+    const requestPayload = {
+      collectionId: colId,
+      name: req.name || "New Request",
+      method: req.method || "GET",
+      url: req.url || "https://jsonplaceholder.typicode.com/users",
+      headers: headersToMap(req.headers),
+      queryParams: paramsToMap(req.queryParams),
+      body: {
+        mode: req.bodyType || "none",
+        rawContent: req.body || "",
+      },
+      testScript: req.testsScript || "",
+      preRequestScript: req.preRequestScript || "",
+    };
+
+    const newReq: RequestItem = {
+      id: "req-" + Date.now(),
+      name: req.name || "New Request",
+      collectionId: colId,
+      method: req.method || "GET",
+      url: req.url || "https://jsonplaceholder.typicode.com/users",
+      headers: req.headers || [{ id: "h1", enabled: true, key: "Content-Type", value: "application/json", description: "" }],
+      queryParams: req.queryParams || [],
+      bodyType: req.bodyType || "none",
+      body: req.body || "",
+      auth: req.auth || { type: "none" },
+      testsScript: req.testsScript || "",
+      preRequestScript: req.preRequestScript || "",
+    };
+
     try {
-      await apiClient.post("/requests", {
-        collectionId: colId,
-        name: request.name,
-        method: request.method,
-        url: request.url,
-        headers: request.headers.reduce((acc, h) => {
-          if (h.enabled && h.key) acc[h.key] = h.value;
-          return acc;
-        }, {} as Record<string, string>),
-        body: request.body,
+      const res = await apiClient.post("/requests", requestPayload);
+      const created = res.data?.data || res.data;
+      if (created?._id || created?.id) {
+        newReq.id = created._id || created.id;
+      }
+    } catch {
+      // Local fallback
+    }
+
+    return newReq;
+  },
+
+  async updateRequest(requestId: string, req: Partial<RequestItem>): Promise<void> {
+    try {
+      await apiClient.patch(`/requests/${requestId}`, {
+        name: req.name,
+        method: req.method,
+        url: req.url,
+        headers: headersToMap(req.headers),
+        queryParams: paramsToMap(req.queryParams),
+        body: {
+          mode: req.bodyType || "none",
+          rawContent: req.body || "",
+        },
+        testScript: req.testsScript,
+        preRequestScript: req.preRequestScript,
       });
     } catch {
       // Local fallback
     }
-    return request;
+  },
+
+  async deleteRequest(requestId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/requests/${requestId}`);
+    } catch {
+      // Local fallback
+    }
   },
 };

@@ -17,12 +17,14 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
   onOpenRequest,
 }) => {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background font-body-md text-on-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 font-body-md text-on-background">
       <TopNavBar onBrandClick={onExit} onNavigate={onNavigate} onImportClick={onImport} />
 
       <div className="flex flex-1 overflow-hidden">
-        <SideNavBar />
-        <ExecutionHistory onOpen={onOpenRequest} />
+        <SideNavBar onNavigate={onNavigate} />
+        <div className="flex-1 overflow-hidden">
+          <ExecutionHistory onOpen={onOpenRequest} />
+        </div>
       </div>
     </div>
   );

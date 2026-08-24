@@ -1,4 +1,5 @@
 import React from "react";
+import { useAuthStore } from "../../store/useAuthStore";
 
 interface TopNavBarProps {
   onBrandClick?: () => void;
@@ -6,82 +7,67 @@ interface TopNavBarProps {
   onImportClick?: () => void;
 }
 
-const navItems = ["Workspaces", "Environments", "History"];
-
 export const TopNavBar: React.FC<TopNavBarProps> = ({
   onBrandClick,
   onNavigate,
   onImportClick,
 }) => {
+  const { user } = useAuthStore();
+
   return (
-    <nav className="z-50 flex h-12 w-full items-center justify-between border-b border-outline-variant bg-surface-container-low px-4 font-body-md text-body-md">
+    <nav className="z-50 flex h-12 w-full items-center justify-between border-b border-[#2b354b] bg-[#151b2d] px-4 font-body-md text-body-md text-[#dce1fb]">
       <div className="flex items-center gap-6">
         <button
           onClick={onBrandClick}
-          className="font-headline-md text-headline-md font-bold text-primary"
+          className="text-[17px] font-bold text-[#4cd7f6] flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
+          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>api</span>
           API Workbench
         </button>
 
-        <div className="relative hidden items-center lg:flex">
-          <span className="material-symbols-outlined absolute left-2 text-sm text-on-surface-variant">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="h-8 w-64 rounded border border-outline-variant bg-surface-container-highest py-1 pl-8 pr-3 text-sm text-on-surface outline-none transition-colors focus:border-primary-container"
-          />
-        </div>
-
-        <div className="hidden h-full items-center gap-4 md:flex">
-          {navItems.map((item) =>
-            item === "History" ? (
-              <button
-                key={item}
-                onClick={() => onNavigate?.(item)}
-                className="flex h-full items-center border-b-2 border-primary px-2 pb-1 text-primary transition-colors hover:bg-surface-container-highest active:scale-95"
-              >
-                {item}
-              </button>
-            ) : (
-              <button
-                key={item}
-                onClick={() => onNavigate?.(item)}
-                className="flex h-full items-center px-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest active:scale-95"
-              >
-                {item}
-              </button>
-            ),
-          )}
+        <div className="hidden h-full items-center gap-2 md:flex">
+          <button
+            onClick={() => onNavigate?.("workbench")}
+            className="flex h-full items-center px-3 text-xs text-slate-400 hover:text-white transition-colors"
+          >
+            Workbench
+          </button>
+          <button
+            onClick={() => onNavigate?.("environments")}
+            className="flex h-full items-center px-3 text-xs text-slate-400 hover:text-white transition-colors"
+          >
+            Environments
+          </button>
+          <button
+            className="mt-1 flex h-full items-center border-b-2 border-primary px-3 pb-1 text-primary text-xs font-semibold"
+          >
+            History
+          </button>
+          <button
+            onClick={() => onNavigate?.("runner")}
+            className="flex h-full items-center px-3 text-xs text-slate-400 hover:text-white transition-colors"
+          >
+            Collection Runner
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <button className="flex items-center gap-1 text-on-surface-variant transition-colors hover:text-on-surface">
-          <span className="material-symbols-outlined text-[20px]">settings</span>
-        </button>
-        <button className="flex items-center gap-1 text-on-surface-variant transition-colors hover:text-on-surface">
-          <span className="material-symbols-outlined text-[20px]">help</span>
-        </button>
-        <button className="relative flex items-center gap-1 text-on-surface-variant transition-colors hover:text-on-surface">
-          <span className="material-symbols-outlined text-[20px]">notifications</span>
-          <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-primary"></span>
-        </button>
+      <div className="flex items-center gap-3">
         <button
           onClick={() => onImportClick?.()}
-          className="rounded border border-outline-variant bg-surface-container-highest px-3 py-1 text-sm transition-colors hover:border-primary-container active:scale-95"
+          className="text-xs font-medium text-slate-300 hover:text-white bg-[#192237] border border-[#2b354b] px-3 py-1 rounded transition-colors"
         >
           Import
         </button>
-        <button className="flex items-center gap-2 rounded bg-primary-container px-3 py-1 text-sm font-semibold text-on-primary-container transition-colors hover:bg-primary-container/90 active:scale-95">
+        <button
+          onClick={() => onNavigate?.("runner")}
+          className="flex items-center gap-1.5 rounded bg-[#4cd7f6] px-3 py-1 text-xs font-bold text-[#003640] transition-opacity hover:opacity-90 active:scale-95"
+        >
           <span className="material-symbols-outlined text-[16px]">play_arrow</span> Run Collection
         </button>
-        <img
-          alt="User profile"
-          className="h-8 w-8 rounded-full border border-outline-variant object-cover"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCH7C-xhmuXMlaBZb1qw0StbtzKDJKfzw3LOgdVNopXOB2yJkWhH-ovwm4Fdy7t3gG2hMVIL80s_gzhEy8Mpq0dpCnZsIudxqUWIZBNB649ENJz2f13jkfzOI5Dfx4pPdK8wR3Fd7Jbuijhp14oQLIvg21yhHLB1ve6Ixf7g0F-I7G5S3PTcQ4SGetmYbVTxAVxzVqN-FF4lfhmJ0HIuP5wu4NYVPQ4mItCfIpwaxBk5ru_qe1zjvpp"
-        />
+        <div className="h-7 w-7 rounded-full bg-[#571bc1] flex items-center justify-center text-xs font-bold text-white border border-[#2b354b] ml-1">
+          {user?.name?.slice(0, 2).toUpperCase() || "GU"}
+        </div>
       </div>
     </nav>
   );

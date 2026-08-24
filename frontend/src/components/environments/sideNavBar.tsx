@@ -1,71 +1,52 @@
 import React from "react";
-import { workspace } from "./mockData";
+import { useAuthStore } from "../../store/useAuthStore";
 
-const mainNavItems = [
-  { icon: "folder", label: "Collections" },
-  { icon: "settings_input_component", label: "Environments", active: true },
-  { icon: "history", label: "History" },
-  { icon: "dns", label: "Mock Servers" },
-];
+interface SideNavBarProps {
+  onNavigate?: (view: string) => void;
+}
 
-const footerNavItems = [
-  { icon: "description", label: "Docs" },
-  { icon: "delete", label: "Trash" },
-];
+export const SideNavBar: React.FC<SideNavBarProps> = ({ onNavigate }) => {
+  const { user } = useAuthStore();
 
-export const SideNavBar: React.FC = () => {
+  const mainNavItems = [
+    { icon: "folder", label: "Collections", view: "workbench" },
+    { icon: "settings_input_component", label: "Environments", view: "environments", active: true },
+    { icon: "history", label: "History", view: "history" },
+    { icon: "play_arrow", label: "Runner", view: "runner" },
+  ];
+
   return (
-    <aside className="z-40 hidden h-full w-64 shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest font-label-caps text-label-caps text-primary transition-all duration-200 ease-in-out md:flex">
-      <div className="flex items-center space-x-3 border-b border-outline-variant p-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-surface-container-high text-primary-container">
-          <span className="material-symbols-outlined text-lg">business</span>
+    <aside className="z-40 hidden h-full w-60 shrink-0 flex-col border-r border-[#2b354b] bg-[#070d1f] text-[#dce1fb] md:flex">
+      <div className="flex items-center space-x-3 border-b border-[#2b354b] p-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#20293f] text-cyan-400 font-bold">
+          <span className="material-symbols-outlined text-lg">api</span>
         </div>
         <div className="overflow-hidden">
-          <div className="truncate font-headline-md text-headline-md leading-tight text-primary">
-            {workspace.name}
+          <div className="truncate font-semibold text-xs text-[#4cd7f6] leading-tight">
+            API Workspace
           </div>
-          <div className="truncate font-body-sm text-body-sm text-on-surface-variant">
-            {workspace.team}
+          <div className="truncate text-[10px] text-slate-400">
+            {user?.email || "Personal Workspace"}
           </div>
         </div>
       </div>
 
-      <div className="p-3">
-        <button className="mb-2 flex w-full items-center justify-center space-x-2 rounded border border-outline-variant bg-surface-container-high py-2 text-on-surface transition-colors hover:bg-surface-container">
-          <span className="material-symbols-outlined text-sm">add</span>
-          <span>New Collection</span>
-        </button>
-      </div>
-
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {mainNavItems.map((item) => (
-          <a
+          <button
             key={item.label}
-            href="#"
-            className={`flex items-center space-x-3 rounded-lg px-3 py-2 transition-colors ${
+            onClick={() => onNavigate?.(item.view)}
+            className={`w-full flex items-center space-x-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
               item.active
-                ? "bg-secondary-container text-on-secondary-container"
-                : "text-on-surface-variant hover:bg-surface-container"
+                ? "bg-[#571bc1] text-white"
+                : "text-slate-400 hover:bg-[#151d30] hover:text-white"
             }`}
           >
-            <span className="material-symbols-outlined">{item.icon}</span>
+            <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
             <span>{item.label}</span>
-          </a>
+          </button>
         ))}
       </nav>
-
-      <div className="space-y-1 border-t border-outline-variant p-2">
-        {footerNavItems.map((item) => (
-          <a
-            key={item.label}
-            href="#"
-            className="flex items-center space-x-3 rounded-lg px-3 py-2 text-on-surface-variant transition-colors hover:bg-surface-container"
-          >
-            <span className="material-symbols-outlined">{item.icon}</span>
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </div>
     </aside>
   );
 };

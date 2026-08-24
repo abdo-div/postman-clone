@@ -8,12 +8,16 @@ import { TestEditorPage } from "./components/testEditor/testEditorPage";
 import { SignInPage } from "./components/auth/signInPage";
 import { SignUpPage } from "./components/auth/signUpPage";
 import { ForgotPasswordPage } from "./components/auth/forgotPasswordPage";
+import { MainWorkbench } from "./components/mainWorkbench";
+import { ToastContainer } from "./components/common/ToastContainer";
+import { useAuthStore } from "./store/useAuthStore";
 
 export type View =
   | "landing"
   | "signIn"
   | "signUp"
   | "forgotPassword"
+  | "workbench"
   | "runner"
   | "environments"
   | "import"
@@ -21,12 +25,24 @@ export type View =
   | "testEditor";
 
 export default function App() {
-  const [view, setView] = useState<View>("landing");
+  const [view, setView] = useState<View>(() =>
+    useAuthStore.getState().isAuthenticated ? "workbench" : "landing",
+  );
 
-  if (view === "runner") {
-    return (
+  let content: React.ReactNode;
+
+  if (view === "workbench") {
+    content = (
+      <MainWorkbench
+        onNavigate={(target) => setView(target)}
+        onImport={() => setView("import")}
+        onLogout={() => setView("landing")}
+      />
+    );
+  } else if (view === "runner") {
+    content = (
       <CollectionRunnerPage
-        onExit={() => setView("landing")}
+        onExit={() => setView("workbench")}
         onNavigate={(item) => {
           if (item === "Environments") setView("environments");
           if (item === "History") setView("history");
@@ -34,21 +50,17 @@ export default function App() {
         onImport={() => setView("import")}
       />
     );
-  }
-
-  if (view === "environments") {
-    return (
+  } else if (view === "environments") {
+    content = (
       <EnvironmentPage
-        onExit={() => setView("landing")}
+        onExit={() => setView("workbench")}
         onImport={() => setView("import")}
       />
     );
-  }
-
-  if (view === "history") {
-    return (
+  } else if (view === "history") {
+    content = (
       <HistoryPage
-        onExit={() => setView("landing")}
+        onExit={() => setView("workbench")}
         onNavigate={(item) => {
           if (item === "Environments") setView("environments");
         }}
@@ -56,33 +68,35 @@ export default function App() {
         onOpenRequest={() => setView("testEditor")}
       />
     );
-  }
-
-  if (view === "testEditor") {
-    return <TestEditorPage />;
-  }
-
-  if (view === "import") {
-    return <ImportPage onExit={() => setView("landing")} />;
-  }
-
-  if (view === "signIn") {
-    return (
+  } else if (view === "testEditor") {
+    content = <TestEditorPage />;
+  } else if (view === "import") {
+    content = <ImportPage onExit={() => setView("workbench")} />;
+  } else if (view === "signIn") {
+    content = (
       <SignInPage
-        onSuccess={() => setView("runner")}
+        onSuccess={() => setView("workbench")}
         onSwitchToSignUp={() => setView("signUp")}
         onForgotPassword={() => setView("forgotPassword")}
       />
     );
+  } else if (view === "forgotPassword") {
+    content = <ForgotPasswordPage onBack={() => setView("signIn")} />;
+  } else if (view === "signUp") {
+    content = (
+      <SignUpPage
+        onSuccess={() => setView("workbench")}
+        onSwitchToSignIn={() => setView("signIn")}
+      />
+    );
+  } else {
+    content = <LandingPage onGetStarted={() => setView("signIn")} />;
   }
 
-  if (view === "forgotPassword") {
-    return <ForgotPasswordPage onBack={() => setView("signIn")} />;
-  }
-
-  if (view === "signUp") {
-    return <SignUpPage onSuccess={() => setView("runner")} onSwitchToSignIn={() => setView("signIn")} />;
-  }
-
-  return <LandingPage onGetStarted={() => setView("signIn")} />;
+  return (
+    <>
+      {content}
+      <ToastContainer />
+    </>
+  );
 }

@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { HistoryService } from './history.service.js';
+import { Request, Response, NextFunction } from "express";
+import { HistoryService } from "./history.service.js";
 
 export class HistoryController {
   private historyService: HistoryService;
@@ -8,10 +8,39 @@ export class HistoryController {
     this.historyService = new HistoryService();
   }
 
+  public getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const result = await this.historyService.getAllHistory(page, limit);
+      res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const history = await this.historyService.createHistory(req.body);
+      res.status(201).json({ success: true, data: history });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public clearAll = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.historyService.clearAllHistory();
+      res.status(200).json({ success: true, message: "All history cleared" });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public getById = async (
     req: Request<{ id: string }>,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
       const history = await this.historyService.getHistoryById(req.params.id);
@@ -24,13 +53,11 @@ export class HistoryController {
   public getByRequest = async (
     req: Request<{ requestId: string }, any, any, { page: string; limit: string }>,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
-      // Zod handles coercion, but we parse here to satisfy TypeScript
       const page = parseInt(req.query.page, 10) || 1;
       const limit = parseInt(req.query.limit, 10) || 20;
-      
       const result = await this.historyService.getHistoryByRequestId(req.params.requestId, page, limit);
       res.status(200).json({ success: true, ...result });
     } catch (error) {
@@ -41,7 +68,7 @@ export class HistoryController {
   public getMetrics = async (
     req: Request<{ requestId: string }>,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
       const metrics = await this.historyService.getRequestMetrics(req.params.requestId);
@@ -54,11 +81,11 @@ export class HistoryController {
   public clearRequestHistory = async (
     req: Request<{ requestId: string }>,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
       await this.historyService.clearHistoryForRequest(req.params.requestId);
-      res.status(200).json({ success: true, message: 'Request history cleared' });
+      res.status(200).json({ success: true, message: "Request history cleared" });
     } catch (error) {
       next(error);
     }
