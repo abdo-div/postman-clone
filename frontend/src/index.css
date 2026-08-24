@@ -2,6 +2,7 @@
 
 @theme {
   /* Font families */
+  --font-sans: "Inter", sans-serif;
   --font-body-sm: "Inter", sans-serif;
   --font-body-md: "Inter", sans-serif;
   --font-body-lg: "Inter", sans-serif;
@@ -10,6 +11,13 @@
   --font-headline-lg: "Plus Jakarta Sans", sans-serif;
   --font-code-sm: "JetBrains Mono", monospace;
   --font-code-md: "JetBrains Mono", monospace;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Landing page accents */
+  --color-obsidian: #020617;
+  --color-cyan-electric: #06b6d4;
+  --color-violet-neon: #8b5cf6;
 
   /* Type scale */
   --text-body-sm: 12px;
@@ -98,6 +106,8 @@
   --color-method-post-bg: rgb(245 158 11 / 0.1);
   --color-method-delete-text: #f43f5e;
   --color-method-delete-bg: rgb(244 63 94 / 0.1);
+  --color-method-put-text: #3b82f6;
+  --color-method-del-text: #ef4444;
 
   /* Density spacing */
   --spacing-unit: 4px;
@@ -162,6 +172,13 @@
   box-shadow: inset 0 0 40px rgb(6 182 212 / 0.05);
 }
 
+/* Progress bar shimmer (sign-up preview) */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Spreadsheet (environment variables) styles */
 .ss-table {
   width: 100%;
@@ -203,4 +220,46 @@
 .ss-input-ghost:focus {
   border: 1px solid #06b6d4;
   background-color: #0f172a;
+}
+
+/* Landing page scoped palette overrides (darker slate scheme) */
+.landing {
+  --color-surface-container: #0f172a;
+  --color-surface-variant: #1e293b;
+  --color-on-surface: #f8fafc;
+  --color-on-surface-variant: #94a3b8;
+  --color-outline: #334155;
+}
+
+/* Landing glass nav */
+.glass-nav {
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  transition: all 0.3s ease;
+}
+
+.glass-nav.scrolled {
+  height: 3.5rem;
+  background: rgba(2, 6, 23, 0.9);
+}
+
+.cyber-glow {
+  box-shadow:
+    0 0 60px -15px rgb(6 182 212 / 0.2),
+    0 0 40px -10px rgb(139 92 246 / 0.2);
+}
+
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(to right, #06b6d4, #8b5cf6);
+}
+
+.grid-bg-fine {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgb(30 41 59 / 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(30 41 59 / 0.3) 1px, transparent 1px);
 }

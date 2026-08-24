@@ -6,10 +6,14 @@ import { ImportPage } from "./components/importApi/importPage";
 import { HistoryPage } from "./components/history/historyPage";
 import { TestEditorPage } from "./components/testEditor/testEditorPage";
 import { SignInPage } from "./components/auth/signInPage";
+import { SignUpPage } from "./components/auth/signUpPage";
+import { ForgotPasswordPage } from "./components/auth/forgotPasswordPage";
 
 export type View =
   | "landing"
   | "signIn"
+  | "signUp"
+  | "forgotPassword"
   | "runner"
   | "environments"
   | "import"
@@ -63,7 +67,21 @@ export default function App() {
   }
 
   if (view === "signIn") {
-    return <SignInPage onSuccess={() => setView("runner")} />;
+    return (
+      <SignInPage
+        onSuccess={() => setView("runner")}
+        onSwitchToSignUp={() => setView("signUp")}
+        onForgotPassword={() => setView("forgotPassword")}
+      />
+    );
+  }
+
+  if (view === "forgotPassword") {
+    return <ForgotPasswordPage onBack={() => setView("signIn")} />;
+  }
+
+  if (view === "signUp") {
+    return <SignUpPage onSuccess={() => setView("runner")} onSwitchToSignIn={() => setView("signIn")} />;
   }
 
   return <LandingPage onGetStarted={() => setView("signIn")} />;

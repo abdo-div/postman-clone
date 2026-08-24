@@ -4,9 +4,15 @@ import { IdePreview } from "./idePreview";
 
 interface SignInPageProps {
   onSuccess?: () => void;
+  onSwitchToSignUp?: () => void;
+  onForgotPassword?: () => void;
 }
 
-export const SignInPage: React.FC<SignInPageProps> = ({ onSuccess }) => {
+export const SignInPage: React.FC<SignInPageProps> = ({
+  onSuccess,
+  onSwitchToSignUp,
+  onForgotPassword,
+}) => {
   return (
     <div className="flex min-h-screen bg-surface-container-lowest font-body-md text-on-surface selection:bg-primary-container selection:text-on-primary-container">
       <div className="flex w-full min-h-screen">
@@ -26,7 +32,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onSuccess }) => {
           </a>
 
           <div className="mx-auto flex w-full max-w-[360px] flex-1 flex-col justify-center">
-            <SignInForm onSuccess={onSuccess} />
+            <SignInForm onSuccess={onSuccess} onForgotPassword={onForgotPassword} />
           </div>
 
           {/* Footer */}
@@ -35,6 +41,10 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onSuccess }) => {
               Don't have an account?{" "}
               <a
                 href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSwitchToSignUp?.();
+                }}
                 className="font-medium text-primary transition-colors hover:text-primary-fixed"
               >
                 Sign up

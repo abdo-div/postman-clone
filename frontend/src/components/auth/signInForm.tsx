@@ -2,9 +2,10 @@ import React, { useState } from "react";
 
 interface SignInFormProps {
   onSuccess?: () => void;
+  onForgotPassword?: () => void;
 }
 
-export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
+export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess, onForgotPassword }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -86,7 +87,14 @@ export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
                 Remember me
               </span>
             </label>
-            <a href="#" className="font-body-sm text-body-sm text-primary transition-colors hover:text-primary-fixed">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onForgotPassword?.();
+              }}
+              className="font-body-sm text-body-sm text-primary transition-colors hover:text-primary-fixed"
+            >
               Forgot password?
             </a>
           </div>
