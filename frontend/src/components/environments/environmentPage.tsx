@@ -7,15 +7,16 @@ import { EnvironmentEditor } from "./environmentEditor";
 
 interface EnvironmentPageProps {
   onExit?: () => void;
+  onImport?: () => void;
 }
 
-export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit }) => {
+export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onImport }) => {
   const [activeId, setActiveId] = useState("prod");
   const active = environments.find((env) => env.id === activeId) ?? environments[0];
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-950 font-body-md text-on-surface selection:bg-primary-container selection:text-on-primary-container">
-      <TopNavBar onBrandClick={onExit} />
+      <TopNavBar onBrandClick={onExit} onImportClick={onImport} />
 
       <div className="flex flex-1 overflow-hidden">
         <SideNavBar />

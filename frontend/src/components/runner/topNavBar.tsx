@@ -3,13 +3,14 @@ import React from "react";
 interface TopNavBarProps {
   onBrandClick?: () => void;
   onNavigate?: (item: string) => void;
+  onImportClick?: () => void;
 }
 
 const navItems = ["Workspaces", "Environments", "History"];
 
 const actionIcons = ["settings", "help", "notifications"];
 
-export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate }) => {
+export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate, onImportClick }) => {
   return (
     <header className="fixed top-0 left-0 z-50 flex h-12 w-full items-center justify-between border-b border-outline-variant bg-surface-container-low px-4">
       <div className="flex items-center gap-density-spacious">
@@ -47,7 +48,10 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate }
       </nav>
 
       <div className="flex items-center gap-density-comfortable">
-        <button className="rounded border border-slate-800 bg-slate-900 px-3 py-1 font-body-sm text-body-sm text-on-surface transition-colors hover:border-cyan-accent">
+        <button
+          onClick={() => onImportClick?.()}
+          className="rounded border border-slate-800 bg-slate-900 px-3 py-1 font-body-sm text-body-sm text-on-surface transition-colors hover:border-cyan-accent"
+        >
           Import
         </button>
         <button className="rounded bg-cyan-accent px-3 py-1 font-body-sm text-body-sm font-semibold text-slate-950 transition-opacity hover:opacity-90">

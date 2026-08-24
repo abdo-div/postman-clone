@@ -2,6 +2,7 @@ import React from "react";
 
 interface TopNavBarProps {
   onBrandClick?: () => void;
+  onImportClick?: () => void;
 }
 
 const navItems = [
@@ -12,7 +13,7 @@ const navItems = [
 
 const actionIcons = ["settings", "help", "notifications"];
 
-export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick }) => {
+export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onImportClick }) => {
   return (
     <nav className="z-50 flex h-12 w-full shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-low px-4 font-body-md text-body-md">
       <div className="flex h-full items-center space-x-6">
@@ -56,7 +57,10 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick }) => {
             className="w-48 rounded border border-outline-variant bg-surface-container-lowest py-1 pl-8 pr-3 font-code-sm text-sm text-on-surface transition-colors focus:border-primary-container focus:outline-none"
           />
         </div>
-        <button className="text-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface active:scale-95">
+        <button
+          onClick={() => onImportClick?.()}
+          className="text-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface active:scale-95"
+        >
           Import
         </button>
         <button className="rounded bg-primary-container px-3 py-1 text-sm font-semibold text-surface-dim transition-colors hover:bg-primary-fixed active:scale-95">
