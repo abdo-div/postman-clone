@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Collection, RequestItem } from "../services/collectionService";
-import { executorService, interpolateVariables } from "../services/executorService";
+import { executorService, interpolateVariables, executeTestScript } from "../services/executorService";
 
 export type RunStatus = "idle" | "running" | "completed" | "aborted";
 export type StepStatus = "pending" | "running" | "passed" | "failed" | "skipped";
@@ -165,7 +165,6 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
           let testResults: { name: string; passed: boolean; error?: string }[] = [];
 
           if (req.testsScript && req.testsScript.trim()) {
-            const { executeTestScript } = await import("../services/executorService");
             const testRes = executeTestScript(
               req.testsScript,
               {

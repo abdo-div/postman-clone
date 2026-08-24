@@ -4,8 +4,7 @@ import { NotFoundError } from "../../errors/app-error.js";
 
 export class HistoryService {
   public async createHistory(data: any): Promise<IHistory> {
-    const record = await HistoryModel.create({
-      requestId: data.requestId && Types.ObjectId.isValid(data.requestId) ? new Types.ObjectId(data.requestId) : undefined,
+    const payload: any = {
       requestSnapshot: {
         method: data.method || data.requestSnapshot?.method || "GET",
         url: data.url || data.requestSnapshot?.url || "",
@@ -24,8 +23,14 @@ export class HistoryService {
       },
       testResults: data.testResults || [],
       executedAt: data.executedAt || new Date(),
-    });
-    return record;
+    };
+
+    if (data.requestId && Types.ObjectId.isValid(data.requestId)) {
+      payload.requestId = new Types.ObjectId(data.requestId);
+    }
+
+    const record = await HistoryModel.create(payload);
+    return record as IHistory;
   }
 
   public async getAllHistory(page = 1, limit = 50) {

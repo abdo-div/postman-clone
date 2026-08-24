@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useWorkbenchStore, type HttpMethod, type RequestTab } from "../store/useWorkbenchStore";
+import { useWorkbenchStore, type HttpMethod } from "../store/useWorkbenchStore";
 import { useCollectionStore } from "../store/useCollectionStore";
 import { useEnvironmentStore } from "../store/useEnvironmentStore";
 import { useHistoryStore } from "../store/useHistoryStore";
 import { useToastStore } from "../store/useToastStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { executorService, executeTestScript } from "../services/executorService";
+import { executorService, executeTestScript, interpolateVariables } from "../services/executorService";
 import type { View } from "../App";
 
 interface MainWorkbenchProps {
@@ -174,7 +174,7 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
     const enabledParams = params.filter((p) => p.enabled && p.key.trim());
     if (enabledParams.length === 0) return url;
     const queryString = enabledParams
-      .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(interpolate(p.value))}`)
+      .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(interpolateVariables(p.value, envVars))}`)
       .join("&");
     return url.includes("?") ? `${url}&${queryString}` : `${url}?${queryString}`;
   };
