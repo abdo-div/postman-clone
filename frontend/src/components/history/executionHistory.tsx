@@ -19,7 +19,11 @@ const statusStyles: Record<StatusCodeClass, string> = {
 type MethodFilter = "all" | HttpMethod;
 type StatusFilter = "all" | StatusCodeClass;
 
-export const ExecutionHistory: React.FC = () => {
+interface ExecutionHistoryProps {
+  onOpen?: () => void;
+}
+
+export const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ onOpen }) => {
   const [entries, setEntries] = useState(historyEntries);
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
@@ -158,6 +162,7 @@ export const ExecutionHistory: React.FC = () => {
                   <td className="flex justify-end gap-2 px-2 py-2 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       title="Open"
+                      onClick={() => onOpen?.()}
                       className="text-cyan-accent transition-colors hover:text-white"
                     >
                       <span className="material-symbols-outlined text-[18px]">open_in_new</span>

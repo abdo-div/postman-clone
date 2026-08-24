@@ -4,8 +4,17 @@ import { CollectionRunnerPage } from "./components/runner/collectionRunnerPage";
 import { EnvironmentPage } from "./components/environments/environmentPage";
 import { ImportPage } from "./components/importApi/importPage";
 import { HistoryPage } from "./components/history/historyPage";
+import { TestEditorPage } from "./components/testEditor/testEditorPage";
+import { SignInPage } from "./components/auth/signInPage";
 
-export type View = "landing" | "runner" | "environments" | "import" | "history";
+export type View =
+  | "landing"
+  | "signIn"
+  | "runner"
+  | "environments"
+  | "import"
+  | "history"
+  | "testEditor";
 
 export default function App() {
   const [view, setView] = useState<View>("landing");
@@ -40,13 +49,22 @@ export default function App() {
           if (item === "Environments") setView("environments");
         }}
         onImport={() => setView("import")}
+        onOpenRequest={() => setView("testEditor")}
       />
     );
+  }
+
+  if (view === "testEditor") {
+    return <TestEditorPage />;
   }
 
   if (view === "import") {
     return <ImportPage onExit={() => setView("landing")} />;
   }
 
-  return <LandingPage onGetStarted={() => setView("runner")} />;
+  if (view === "signIn") {
+    return <SignInPage onSuccess={() => setView("runner")} />;
+  }
+
+  return <LandingPage onGetStarted={() => setView("signIn")} />;
 }

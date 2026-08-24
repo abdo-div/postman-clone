@@ -7,16 +7,22 @@ interface HistoryPageProps {
   onExit?: () => void;
   onNavigate?: (item: string) => void;
   onImport?: () => void;
+  onOpenRequest?: () => void;
 }
 
-export const HistoryPage: React.FC<HistoryPageProps> = ({ onExit, onNavigate, onImport }) => {
+export const HistoryPage: React.FC<HistoryPageProps> = ({
+  onExit,
+  onNavigate,
+  onImport,
+  onOpenRequest,
+}) => {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-body-md text-on-background">
       <TopNavBar onBrandClick={onExit} onNavigate={onNavigate} onImportClick={onImport} />
 
       <div className="flex flex-1 overflow-hidden">
         <SideNavBar />
-        <ExecutionHistory />
+        <ExecutionHistory onOpen={onOpenRequest} />
       </div>
     </div>
   );

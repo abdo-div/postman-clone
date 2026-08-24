@@ -131,6 +131,37 @@
   background: #334155;
 }
 
+/* Code editor syntax colors */
+.code-highlight {
+  color: #4cd7f6; /* primary */
+}
+
+.code-string {
+  color: #a3e635;
+}
+
+.code-keyword {
+  color: #d0bcff; /* secondary */
+}
+
+.code-comment {
+  color: #869397; /* outline */
+}
+
+/* Hide scrollbars while keeping scroll (editor tab strip) */
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sign-in ambient glow */
+.glow-effect {
+  box-shadow: inset 0 0 40px rgb(6 182 212 / 0.05);
+}
+
 /* Spreadsheet (environment variables) styles */
 .ss-table {
   width: 100%;
