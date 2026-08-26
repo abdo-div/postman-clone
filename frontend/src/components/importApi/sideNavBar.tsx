@@ -1,5 +1,6 @@
 import React from "react";
-import { workspace } from "../environments/mockData";
+
+const workspace = { name: "Main Workspace", team: "Developer Team" };
 
 const mainNavItems = [
   { icon: "folder", label: "Collections", active: true },

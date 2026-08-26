@@ -4,7 +4,7 @@ export interface ExecuteRequestPayload {
   url: string;
   method: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: string | Record<string, unknown>;
   environmentVariables?: Record<string, string>;
   timeoutMs?: number;
 }
@@ -13,7 +13,7 @@ export interface ExecutionResponseData {
   status: number;
   statusText: string;
   headers: Record<string, string>;
-  data: any;
+  data: string | Record<string, unknown>;
   metrics: {
     durationMs: number;
     sizeBytes: number;
@@ -87,7 +87,7 @@ async function clientSideExecute(
     }
   }
 
-  let bodyData: any = undefined;
+  let bodyData: string | undefined = undefined;
   if (
     payload.body &&
     payload.method !== "GET" &&
@@ -125,9 +125,9 @@ async function clientSideExecute(
     });
 
     const text = await res.text();
-    let parsedData: any = text;
+    let parsedData: string | Record<string, unknown> = text;
     try {
-      parsedData = JSON.parse(text);
+      parsedData = JSON.parse(text) as Record<string, unknown>;
     } catch {
       // plain text
     }
@@ -142,13 +142,16 @@ async function clientSideExecute(
         sizeBytes: new Blob([text]).size,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     clearTimeout(timeout);
-    if (error.name === "AbortError") {
-      throw new Error(`Request timed out after ${payload.timeoutMs || 10000}ms`);
+    const msg = error instanceof Error ? error.message : String(error);
+    const name = error instanceof Error ? error.name : "";
+    if (name === "AbortError") {
+      throw new Error(`Request timed out after ${payload.timeoutMs || 10000}ms`, { cause: error });
     }
     throw new Error(
-      error.message || "Network error or CORS issue when calling target URL directly",
+      msg || "Network error or CORS issue when calling target URL directly",
+      { cause: error },
     );
   }
 }
@@ -162,7 +165,7 @@ export function executeTestScript(
     status: number;
     statusText: string;
     headers: Record<string, string>;
-    data: any;
+    data: string | Record<string, unknown>;
     responseTime?: number;
   },
   environmentVariables: Record<string, string> = {},
@@ -183,7 +186,7 @@ export function executeTestScript(
   const pm = {
     environment: {
       get: (key: string) => updatedEnv[key],
-      set: (key: string, val: any) => {
+      set: (key: string, val: unknown) => {
         updatedEnv[key] = String(val);
       },
       has: (key: string) => key in updatedEnv,
@@ -193,7 +196,7 @@ export function executeTestScript(
     },
     variables: {
       get: (key: string) => updatedEnv[key],
-      set: (key: string, val: any) => {
+      set: (key: string, val: unknown) => {
         updatedEnv[key] = String(val);
       },
     },
@@ -250,17 +253,17 @@ export function executeTestScript(
           passed: true,
           durationMs: Math.round(performance.now() - testStart),
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         results.push({
           id: String(results.length + 1),
           name: testName,
           passed: false,
-          error: err.message || "Assertion failed",
+          error: err instanceof Error ? err.message : "Assertion failed",
           durationMs: Math.round(performance.now() - testStart),
         });
       }
     },
-    expect: (target: any) => ({
+    expect: (target: unknown) => ({
       to: {
         be: {
           below: (limit: number) => {
@@ -273,7 +276,7 @@ export function executeTestScript(
               throw new Error(`expected ${target} to be above ${limit}`);
             }
           },
-          equal: (expected: any) => {
+          equal: (expected: unknown) => {
             if (target !== expected) {
               throw new Error(`expected ${JSON.stringify(target)} to equal ${JSON.stringify(expected)}`);
             }
@@ -289,18 +292,19 @@ export function executeTestScript(
         },
         have: {
           property: (prop: string) => {
-            if (!target || !(prop in target)) {
+            if (!target || typeof target !== "object" || !(prop in target)) {
               throw new Error(`expected target to have property '${prop}'`);
             }
           },
           lengthOf: (len: number) => {
-            if (!target || target.length !== len) {
-              throw new Error(`expected length of ${len} but got ${target?.length}`);
+            const tLen = Array.isArray(target) ? target.length : typeof target === "string" ? target.length : undefined;
+            if (tLen === undefined || tLen !== len) {
+              throw new Error(`expected length of ${len} but got ${tLen}`);
             }
           },
         },
-        include: (needle: any) => {
-          if (typeof target === "string" && !target.includes(needle)) {
+        include: (needle: string | number) => {
+          if (typeof target === "string" && !target.includes(String(needle))) {
             throw new Error(`expected '${target}' to include '${needle}'`);
           }
           if (Array.isArray(target) && !target.includes(needle)) {
@@ -315,12 +319,12 @@ export function executeTestScript(
     // Run script in isolated function scope with pm injected
     const runFn = new Function("pm", script);
     runFn(pm);
-  } catch (err: any) {
+  } catch (err: unknown) {
     results.push({
       id: String(results.length + 1),
       name: "Script Syntax/Runtime Error",
       passed: false,
-      error: err.message,
+      error: err instanceof Error ? err.message : "Unknown error",
       durationMs: Math.round(performance.now() - startTime),
     });
   }
@@ -342,9 +346,10 @@ export const executorService = {
       if (response.data?.data) {
         return response.data.data;
       }
-      return response.data as any;
-    } catch (err: any) {
-      console.warn("Backend executor unavailable or returned error, falling back to direct browser execution:", err.message);
+      return response.data as unknown as ExecutionResponseData;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("Backend executor unavailable or returned error, falling back to direct browser execution:", msg);
       return clientSideExecute(payload);
     }
   },
@@ -355,7 +360,7 @@ export const executorService = {
       status: number;
       statusText: string;
       headers: Record<string, string>;
-      data: any;
+      data: string | Record<string, unknown>;
       responseTime?: number;
     },
     environmentVariables: Record<string, string> = {},
@@ -377,7 +382,7 @@ export const executorService = {
       if (apiRes.data?.data) {
         return apiRes.data.data;
       }
-      return apiRes.data as any;
+      return apiRes.data as unknown as TestRunnerResponse;
     } catch {
       // Run locally
       return executeTestScript(script, response, environmentVariables);

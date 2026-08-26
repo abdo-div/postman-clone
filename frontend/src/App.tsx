@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LandingPage } from "./components/landingPage";
 import { CollectionRunnerPage } from "./components/runner/collectionRunnerPage";
 import { EnvironmentPage } from "./components/environments/environmentPage";
@@ -10,7 +10,9 @@ import { SignUpPage } from "./components/auth/signUpPage";
 import { ForgotPasswordPage } from "./components/auth/forgotPasswordPage";
 import { MainWorkbench } from "./components/mainWorkbench";
 import { ToastContainer } from "./components/common/ToastContainer";
+import { CommandPalette } from "./components/commandPalette/commandPalette";
 import { useAuthStore } from "./store/useAuthStore";
+import { useWorkbenchStore } from "./store/useWorkbenchStore";
 
 export type View =
   | "landing"
@@ -24,15 +26,70 @@ export type View =
   | "history"
   | "testEditor";
 
+const WORKSPACE_VIEWS: View[] = ["workbench", "runner", "environments", "import", "history", "testEditor"];
+
 export default function App() {
   const [view, setView] = useState<View>(() =>
     useAuthStore.getState().isAuthenticated ? "workbench" : "landing",
   );
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const pageViews: View[] = ["landing", "workbench", "runner", "environments", "import", "history", "testEditor"];
   const handlePageNavigate = (target: string) => {
     if (pageViews.includes(target as View)) setView(target as View);
   };
+
+  // Global Ctrl+K listener
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        if (WORKSPACE_VIEWS.includes(view)) {
+          setPaletteOpen((o) => !o);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [view]);
+
+  const handleCommand = useCallback(
+    (cmd: { action: string }) => {
+      const wb = useWorkbenchStore.getState();
+      switch (cmd.action) {
+        // Navigation
+        case "workbench":
+        case "environments":
+        case "history":
+        case "runner":
+        case "import":
+        case "testEditor":
+          setView(cmd.action as View);
+          break;
+        // Workbench actions
+        case "send":
+          setView("workbench");
+          // Trigger send via a small delay to let the view render
+          setTimeout(() => document.dispatchEvent(new CustomEvent("wb-send")), 50);
+          break;
+        case "save":
+          document.dispatchEvent(new CustomEvent("wb-save"));
+          break;
+        case "clearResponse":
+          wb.clearResponse();
+          break;
+        case "newCollection":
+          setView("workbench");
+          setTimeout(() => document.dispatchEvent(new CustomEvent("wb-new-collection")), 50);
+          break;
+        case "newRequest":
+          setView("workbench");
+          setTimeout(() => document.dispatchEvent(new CustomEvent("wb-new-request")), 50);
+          break;
+      }
+    },
+    [],
+  );
 
   let content: React.ReactNode;
 
@@ -70,7 +127,13 @@ export default function App() {
       />
     );
   } else if (view === "testEditor") {
-    content = <TestEditorPage />;
+    content = (
+      <TestEditorPage
+        onBack={() => setView("workbench")}
+        onNavigate={handlePageNavigate}
+        onImport={() => setView("import")}
+      />
+    );
   } else if (view === "import") {
     content = <ImportPage onExit={() => setView("workbench")} />;
   } else if (view === "signIn") {
@@ -98,6 +161,14 @@ export default function App() {
     <>
       {content}
       <ToastContainer />
+      {WORKSPACE_VIEWS.includes(view) && (
+        <CommandPalette
+          key={paletteOpen ? "open" : "closed"}
+          isOpen={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onExecute={handleCommand}
+        />
+      )}
     </>
   );
 }

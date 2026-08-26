@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../errors/app-error.js";
+import { logger } from "../config/logger.js";
 
 export const errorHandler = (
   err: Error,
@@ -7,8 +8,8 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction,
 ) => {
-  // Print real error stack in dev console to debug instantly
-  console.error("🔥 Server Error Caught:", err);
+  // Structured error logging via Pino
+  logger.error({ err, stack: err.stack }, "Request error caught by error handler");
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({

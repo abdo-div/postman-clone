@@ -32,7 +32,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onConfi
     }
     setIsImporting(true);
     try {
-      const result = await importService.importDefinition(content, type as any);
+      const result = await importService.importDefinition(content, type as "postman" | "openapi" | "curl" | "auto");
       // Add to collection store
       const newCol = await addCollection(result.collection.name, result.collection.description);
       // We need to also add the requests
@@ -49,11 +49,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onConfi
       });
       onConfirm?.();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not parse the provided content";
       addToast({
         type: "error",
         title: "Import failed",
-        description: err.message || "Could not parse the provided content",
+        description: msg,
         duration: 6000,
       });
     } finally {
@@ -86,8 +87,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onConfi
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
       await handleImportContent(content, "auto");
-    } catch (err: any) {
-      addToast({ type: "error", title: "Fetch failed", description: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Fetch failed";
+      addToast({ type: "error", title: "Fetch failed", description: msg });
       setIsImporting(false);
     }
   };

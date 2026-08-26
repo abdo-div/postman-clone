@@ -7,3 +7,7 @@ export interface TestAssertion {
   durationMs: string | null;
   error?: string;
 }
+
+export interface SnippetGroup {
+  items: { label: string; title: string; snippet: string; accent?: boolean }[];
+}

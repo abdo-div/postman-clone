@@ -30,24 +30,24 @@ function variablesToPayload(vars: EnvironmentVariable[] = []) {
 export const environmentService = {
   async getEnvironments(): Promise<Environment[]> {
     try {
-      const res = await apiClient.get<{ success: boolean; data: any[] }>("/environments");
+      const res = await apiClient.get<{ success: boolean; data: Array<Record<string, unknown>> }>("/environments");
       const list = res.data?.data || res.data;
       if (Array.isArray(list) && list.length > 0) {
         const formatted = list.map((e) => ({
-          id: e._id || e.id,
-          name: e.name,
-          isProd: e.name.toLowerCase().includes("prod"),
+          id: (e._id || e.id) as string,
+          name: e.name as string,
+          isProd: (e.name as string).toLowerCase().includes("prod"),
           variables: Array.isArray(e.variables)
-            ? e.variables.map((v: any, idx: number) => ({
-                id: v.id || String(idx + 1),
-                key: v.key || "",
-                initialValue: v.initialValue || v.value || "",
-                currentValue: v.currentValue || v.value || "",
+            ? (e.variables as Array<Record<string, unknown>>).map((v, idx) => ({
+                id: (v.id || String(idx + 1)) as string,
+                key: (v.key || "") as string,
+                initialValue: ((v as Record<string, unknown>).initialValue || v.value || "") as string,
+                currentValue: ((v as Record<string, unknown>).currentValue || v.value || "") as string,
                 secret: Boolean(v.secret),
-                description: v.description || "",
+                description: (v.description || "") as string,
               }))
-            : typeof e.variables === "object"
-              ? Object.entries(e.variables).map(([k, v], idx) => ({
+            : typeof e.variables === "object" && e.variables !== null
+              ? Object.entries(e.variables as Record<string, unknown>).map(([k, v], idx) => ({
                   id: String(idx + 1),
                   key: k,
                   initialValue: String(v),

@@ -2,10 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../modules/user.model.js";
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key_123";
-// 7 days in seconds = 60 * 60 * 24 * 7 = 604800
-const JWT_EXPIRES_IN_SECONDS = 604800;
+import { env } from "../config/env.config.js";
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -19,9 +16,9 @@ export const register = async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await UserModel.create({ name, email, passwordHash });
 
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN_SECONDS,
-    });
+    const token = jwt.sign({ userId: user._id, email: user.email }, env.JWT_SECRET, {
+      expiresIn: env.JWT_EXPIRES_IN,
+    } as jwt.SignOptions);
 
     return res.status(201).json({
       token,
@@ -46,9 +43,9 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN_SECONDS,
-    });
+    const token = jwt.sign({ userId: user._id, email: user.email }, env.JWT_SECRET, {
+      expiresIn: env.JWT_EXPIRES_IN,
+    } as jwt.SignOptions);
 
     return res.status(200).json({
       token,

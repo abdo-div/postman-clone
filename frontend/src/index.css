@@ -98,6 +98,12 @@
   /* Panel elevation */
   --color-panel-level-1: #0f172a;
 
+  /* Workbench-specific surfaces */
+  --color-border: #2b354b;
+  --color-surface-active: #20293f;
+  --color-input-bg: #101729;
+  --color-code-text: #adc6ff;
+
   /* Accents & HTTP method colors */
   --color-cyan-accent: #06b6d4;
   --color-method-get-text: #10b981;

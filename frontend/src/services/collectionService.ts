@@ -78,29 +78,29 @@ function paramsToMap(params: ParamItem[] = []): Record<string, string> {
 export const collectionService = {
   async getCollections(): Promise<Collection[]> {
     try {
-      const res = await apiClient.get<{ success: boolean; data: any[] }>("/collections");
+      const res = await apiClient.get<{ success: boolean; data: Array<Record<string, unknown>> }>("/collections");
       const list = res.data?.data || res.data;
       if (Array.isArray(list)) {
         const formatted = list.map((c) => ({
-          id: c._id || c.id,
-          name: c.name,
-          description: c.description || "",
-          workspaceId: c.workspaceId,
-          requests: (c.requests || []).map((r: any) => ({
-            id: r._id || r.id,
-            name: r.name,
-            collectionId: c._id || c.id,
-            method: r.method || "GET",
-            url: r.url || "",
-            headers: Array.isArray(r.headers) ? r.headers : [],
-            queryParams: Array.isArray(r.queryParams) ? r.queryParams : [],
-            bodyType: r.bodyType || r.body?.mode || "none",
-            body: r.body || (typeof r.body === "object" ? r.body?.rawContent : "") || "",
-            testsScript: r.testsScript || r.testScript || "",
-            preRequestScript: r.preRequestScript || "",
-            auth: r.auth || { type: "none" },
+          id: (c._id || c.id) as string,
+          name: c.name as string,
+          description: (c.description || "") as string,
+          workspaceId: c.workspaceId as string | undefined,
+          requests: ((c.requests as Array<Record<string, unknown>> || [])).map((r) => ({
+            id: (r._id || r.id) as string,
+            name: r.name as string,
+            collectionId: (c._id || c.id) as string,
+            method: (r.method || "GET") as RequestItem["method"],
+            url: (r.url || "") as string,
+            headers: Array.isArray(r.headers) ? r.headers as HeaderItem[] : [],
+            queryParams: Array.isArray(r.queryParams) ? r.queryParams as ParamItem[] : [],
+            bodyType: (r.bodyType || (r.body as Record<string, unknown>)?.mode || "none") as RequestItem["bodyType"],
+            body: (typeof r.body === "string" ? r.body : (r.body as Record<string, unknown>)?.rawContent || "") as string,
+            testsScript: ((r as Record<string, unknown>).testsScript || (r as Record<string, unknown>).testScript || "") as string,
+            preRequestScript: (r.preRequestScript || "") as string,
+            auth: (r.auth || { type: "none" }) as RequestItem["auth"],
           })),
-          folders: c.folders || [],
+          folders: (Array.isArray(c.folders) ? c.folders : []) as CollectionFolder[],
         }));
         localStorage.setItem("postman_collections", JSON.stringify(formatted));
         return formatted;

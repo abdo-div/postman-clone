@@ -10,9 +10,9 @@ export interface HistoryItem {
   durationMs: number;
   sizeBytes?: number;
   timestamp: string;
-  requestBody?: any;
+  requestBody?: string | Record<string, unknown>;
   requestHeaders?: Record<string, string>;
-  responseBody?: any;
+  responseBody?: string | Record<string, unknown>;
   responseHeaders?: Record<string, string>;
   testResults?: Array<{ name: string; passed: boolean; error?: string }>;
 }
@@ -20,24 +20,24 @@ export interface HistoryItem {
 export const historyService = {
   async getHistory(): Promise<HistoryItem[]> {
     try {
-      const res = await apiClient.get<{ success: boolean; data: any[] }>("/history");
+      const res = await apiClient.get<{ success: boolean; data: Array<Record<string, unknown>> }>("/history");
       const list = res.data?.data || res.data;
       if (Array.isArray(list)) {
-        const items = list.map((item: any) => ({
-          id: item.id || item._id || "hist-" + Date.now(),
-          requestId: item.requestId,
-          method: item.method || item.requestSnapshot?.method || "GET",
-          url: item.url || item.requestSnapshot?.url || "",
-          status: item.status || item.responseSnapshot?.status || 200,
-          statusText: item.statusText || item.responseSnapshot?.statusText || "OK",
-          durationMs: item.durationMs || item.metrics?.durationMs || 0,
-          sizeBytes: item.sizeBytes || item.metrics?.sizeBytes || 0,
-          timestamp: item.timestamp || (item.executedAt ? new Date(item.executedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Just now"),
-          requestHeaders: item.requestHeaders || item.requestSnapshot?.headers || {},
-          requestBody: item.requestBody || item.requestSnapshot?.body || "",
-          responseHeaders: item.responseHeaders || item.responseSnapshot?.headers || {},
-          responseBody: item.responseBody || item.responseSnapshot?.data || "",
-          testResults: item.testResults || [],
+        const items = list.map((item) => ({
+          id: (item.id || item._id || "hist-" + Date.now()) as string,
+          requestId: item.requestId as string | undefined,
+          method: (item.method || (item.requestSnapshot as Record<string, unknown>)?.method || "GET") as HistoryItem["method"],
+          url: (item.url || (item.requestSnapshot as Record<string, unknown>)?.url || "") as string,
+          status: Number(item.status || (item.responseSnapshot as Record<string, unknown>)?.status || 200),
+          statusText: (item.statusText || (item.responseSnapshot as Record<string, unknown>)?.statusText || "OK") as string,
+          durationMs: Number(item.durationMs || (item.metrics as Record<string, unknown>)?.durationMs || 0),
+          sizeBytes: Number(item.sizeBytes || (item.metrics as Record<string, unknown>)?.sizeBytes || 0),
+          timestamp: (item.timestamp || (item.executedAt ? new Date(item.executedAt as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Just now")) as string,
+          requestHeaders: (item.requestHeaders || (item.requestSnapshot as Record<string, unknown>)?.headers || {}) as Record<string, string>,
+          requestBody: (item.requestBody || (item.requestSnapshot as Record<string, unknown>)?.body || "") as string | Record<string, unknown>,
+          responseHeaders: (item.responseHeaders || (item.responseSnapshot as Record<string, unknown>)?.headers || {}) as Record<string, string>,
+          responseBody: (item.responseBody || (item.responseSnapshot as Record<string, unknown>)?.data || "") as string | Record<string, unknown>,
+          testResults: (item.testResults || []) as Array<{ name: string; passed: boolean; error?: string }>,
         }));
         localStorage.setItem("postman_history", JSON.stringify(items));
         return items;

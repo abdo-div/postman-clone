@@ -38,9 +38,10 @@ export const useAuthStore = create<AuthState>((set) => {
           isLoading: false,
         });
         return true;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to sign in";
         set({
-          error: err.message || "Failed to sign in",
+          error: msg,
           isLoading: false,
         });
         return false;
@@ -60,9 +61,10 @@ export const useAuthStore = create<AuthState>((set) => {
           isLoading: false,
         });
         return true;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to sign up";
         set({
-          error: err.message || "Failed to sign up",
+          error: msg,
           isLoading: false,
         });
         return false;

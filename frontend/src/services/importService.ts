@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient";
-import type { Collection, RequestItem } from "./collectionService";
+import type { Collection, RequestItem, HeaderItem } from "./collectionService";
 
 export interface ImportResult {
   collection: Collection;
@@ -22,16 +22,17 @@ export const importService = {
     }
 
     // Try JSON parsing
-    let parsedJson: any = null;
+    let parsedJson: Record<string, unknown> | null = null;
     try {
-      parsedJson = JSON.parse(trimmed);
+      parsedJson = JSON.parse(trimmed) as Record<string, unknown>;
     } catch {
       // Not raw JSON, could be YAML or backend can parse it
     }
 
     // Try backend endpoints first
     if (parsedJson) {
-      if (parsedJson.info?.schema?.includes("postman") || type === "postman") {
+      const info = parsedJson.info as Record<string, unknown> | undefined;
+      if ((typeof info?.schema === "string" && info.schema.includes("postman")) || type === "postman") {
         try {
           const res = await apiClient.post("/import/postman", { collection: parsedJson });
           if (res.data?.data) {
@@ -63,7 +64,7 @@ export const importService = {
     }
 
     // Client-side fallback heuristics
-    if (parsedJson?.info?.name) {
+    if (parsedJson?.info && typeof (parsedJson.info as Record<string, unknown>).name === "string") {
       return this.parsePostmanJson(parsedJson);
     }
 
@@ -74,33 +75,36 @@ export const importService = {
     throw new Error("Unable to identify format. Please provide valid Postman Collection or OpenAPI JSON/YAML.");
   },
 
-  parsePostmanJson(postman: any): ImportResult {
-    const colName = postman.info?.name || "Imported Postman Collection";
+  parsePostmanJson(postman: Record<string, unknown>): ImportResult {
+    const info = postman.info as Record<string, unknown> | undefined;
+    const colName = (info?.name as string) || "Imported Postman Collection";
     const requests: RequestItem[] = [];
 
-    const extractItems = (items: any[]) => {
+    const extractItems = (items: Array<Record<string, unknown>>) => {
       for (const item of items) {
         if (item.request) {
-          const req = item.request;
-          const url = typeof req.url === "string" ? req.url : req.url?.raw || "";
-          const method = (req.method || "GET").toUpperCase();
-          const headers = (req.header || []).map((h: any, i: number) => ({
+          const req = item.request as Record<string, unknown>;
+          const urlObj = req.url;
+          const url = typeof urlObj === "string" ? urlObj : (urlObj as Record<string, unknown>)?.raw as string || "";
+          const method = ((req.method as string) || "GET").toUpperCase();
+          const headers = ((req.header as Array<Record<string, unknown>>) || []).map((h, i) => ({
             id: "h-" + i,
             enabled: !h.disabled,
-            key: h.key || "",
-            value: h.value || "",
-            description: h.description || "",
+            key: (h.key as string) || "",
+            value: (h.value as string) || "",
+            description: (h.description as string) || "",
           }));
 
           let body = "";
-          if (req.body?.raw) {
-            body = req.body.raw;
+          const bodyObj = req.body as Record<string, unknown> | undefined;
+          if (bodyObj?.raw) {
+            body = bodyObj.raw as string;
           }
 
           requests.push({
             id: "req-" + Math.random().toString(36).substring(2, 9),
-            name: item.name || "Request",
-            method,
+            name: (item.name as string) || "Request",
+            method: method as RequestItem["method"],
             url,
             headers,
             queryParams: [],
@@ -108,40 +112,42 @@ export const importService = {
             bodyType: body ? "json" : "none",
           });
         } else if (item.item && Array.isArray(item.item)) {
-          extractItems(item.item);
+          extractItems(item.item as Array<Record<string, unknown>>);
         }
       }
     };
 
     if (Array.isArray(postman.item)) {
-      extractItems(postman.item);
+      extractItems(postman.item as Array<Record<string, unknown>>);
     }
 
     const collection: Collection = {
       id: "col-" + Date.now(),
       name: colName,
-      description: postman.info?.description || "Imported from Postman collection",
+      description: ((postman.info as Record<string, unknown>)?.description as string) || "Imported from Postman collection",
       requests,
     };
 
     return { collection, requestsCount: requests.length };
   },
 
-  parseOpenApiJson(openapi: any): ImportResult {
-    const colName = openapi.info?.title || "Imported OpenAPI";
-    const baseUrl = openapi.servers?.[0]?.url || "https://api.example.com";
+  parseOpenApiJson(openapi: Record<string, unknown>): ImportResult {
+    const info = openapi.info as Record<string, unknown> | undefined;
+    const colName = (info?.title as string) || "Imported OpenAPI";
+    const servers = openapi.servers as Array<Record<string, unknown>> | undefined;
+    const baseUrl = (servers?.[0]?.url as string) || "https://api.example.com";
     const requests: RequestItem[] = [];
 
-    if (openapi.paths) {
-      for (const [path, methods] of Object.entries(openapi.paths)) {
-        for (const [method, details] of Object.entries(methods as any)) {
+    const paths = openapi.paths as Record<string, Record<string, Record<string, unknown>>> | undefined;
+    if (paths) {
+      for (const [path, methods] of Object.entries(paths)) {
+        for (const [method, details] of Object.entries(methods)) {
           if (["get", "post", "put", "delete", "patch", "options", "head"].includes(method.toLowerCase())) {
-            const op = details as any;
             const fullUrl = baseUrl.endsWith("/") ? `${baseUrl.slice(0, -1)}${path}` : `${baseUrl}${path}`;
             requests.push({
               id: "req-" + Math.random().toString(36).substring(2, 9),
-              name: op.summary || op.operationId || `${method.toUpperCase()} ${path}`,
-              method: method.toUpperCase() as any,
+              name: ((details.summary as string) || (details.operationId as string) || `${method.toUpperCase()} ${path}`),
+              method: method.toUpperCase() as RequestItem["method"],
               url: fullUrl,
               headers: [
                 { id: "h1", enabled: true, key: "Content-Type", value: "application/json", description: "" },
@@ -157,7 +163,7 @@ export const importService = {
     const collection: Collection = {
       id: "col-" + Date.now(),
       name: colName,
-      description: openapi.info?.description || "Imported from OpenAPI specification",
+      description: (info?.description as string) || "Imported from OpenAPI specification",
       requests,
     };
 
@@ -165,13 +171,13 @@ export const importService = {
   },
 
   parseCurl(curlCmd: string): ImportResult {
-    let method: any = "GET";
+    let method: RequestItem["method"] = "GET";
     let url = "";
-    const headers: any[] = [];
+    const headers: HeaderItem[] = [];
     let body = "";
 
     const methodMatch = curlCmd.match(/-X\s+([A-Z]+)/i) || curlCmd.match(/--request\s+([A-Z]+)/i);
-    if (methodMatch) method = methodMatch[1].toUpperCase();
+    if (methodMatch) method = methodMatch[1].toUpperCase() as RequestItem["method"];
 
     const urlMatch = curlCmd.match(/'(https?:\/\/[^']+)'/) || curlCmd.match(/"(https?:\/\/[^"]+)"/) || curlCmd.match(/(https?:\/\/[^\s]+)/);
     if (urlMatch) url = urlMatch[1];

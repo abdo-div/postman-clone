@@ -17,6 +17,7 @@ const ROLE_HIERARCHY: Record<WorkspaceRole, number> = {
 };
 
 import jwt from "jsonwebtoken";
+import { env } from "../config/env.config.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -46,7 +47,7 @@ export const authUserMiddleware = (
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_key_123") as {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as {
         userId?: string;
         id?: string;
         email?: string;

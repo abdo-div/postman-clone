@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Collection, RequestItem } from "../services/collectionService";
-import { executorService, interpolateVariables, executeTestScript } from "../services/executorService";
+import { executorService, interpolateVariables, executeTestScript, type ExecutionResponseData } from "../services/executorService";
 
 export type RunStatus = "idle" | "running" | "completed" | "aborted";
 export type StepStatus = "pending" | "running" | "passed" | "failed" | "skipped";
@@ -18,7 +18,7 @@ export interface RunStep {
   testsPassed?: number;
   testsFailed?: number;
   error?: string;
-  response?: any;
+  response?: ExecutionResponseData;
   testResults?: { name: string; passed: boolean; error?: string }[];
 }
 
@@ -221,14 +221,15 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
             set({ runStatus: "aborted" });
             return;
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           completed++;
           totalTestsFailed++;
+          const errMsg = err instanceof Error ? err.message : "Unknown error";
 
           set((s) => ({
             steps: s.steps.map((st) =>
               st.id === stepId
-                ? { ...st, status: "failed", error: err.message }
+                ? { ...st,                     status: "failed", error: errMsg }
                 : st,
             ),
             progress: Math.round(

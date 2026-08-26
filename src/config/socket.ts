@@ -1,12 +1,13 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import { env } from './env.config.js';
 
 let io: Server | null = null;
 
 export const initSocketServer = (server: HttpServer): Server => {
   io = new Server(server, {
     cors: {
-      origin: '*', // Adjust allowed origins in production
+      origin: env.CORS_ORIGIN,
       methods: ['GET', 'POST'],
     },
   });

@@ -1,228 +1,151 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { commandSections } from "./commands";
-import type { CommandItem } from "./commands";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { commands } from "./commands";
+import type { Command } from "./commands";
 
 interface CommandPaletteProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
-  onExecute?: (id: string) => void;
+  onExecute: (command: Command) => void;
 }
 
-function matches(item: CommandItem, query: string) {
-  return item.label.toLowerCase().includes(query.toLowerCase());
-}
-
-export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, onExecute }) => {
+export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onExecute }) => {
   const [query, setQuery] = useState("");
-  const [index, setIndex] = useState(0);
-  const [prevOpen, setPrevOpen] = useState(open);
+  const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (open) {
-      setQuery("");
-      setIndex(0);
+  const filtered = useMemo(() => {
+    if (!query.trim()) return commands;
+    const lower = query.toLowerCase();
+    return commands.filter(
+      (cmd) =>
+        cmd.label.toLowerCase().includes(lower) ||
+        cmd.section.toLowerCase().includes(lower),
+    );
+  }, [query]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Command[]>();
+    for (const cmd of filtered) {
+      const arr = map.get(cmd.section) || [];
+      arr.push(cmd);
+      map.set(cmd.section, arr);
     }
-  }
+    return map;
+  }, [filtered]);
 
+  // Focus input on open (state already fresh from remount via key prop)
   useEffect(() => {
-    if (open) {
+    if (isOpen) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [open]);
+  }, [isOpen]);
 
-  const filteredSections = useMemo(
-    () =>
-      commandSections
-        .map((section) => ({
-          ...section,
-          items: section.items.filter((item) => matches(item, query)),
-        }))
-        .filter((section) => section.items.length > 0),
-    [query],
+  // Keep active item in view
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const item = list.querySelector(`[data-index="${activeIndex}"]`);
+    item?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % filtered.length);
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length);
+      }
+      if (e.key === "Enter" && filtered[activeIndex]) {
+        e.preventDefault();
+        onExecute(filtered[activeIndex]);
+        onClose();
+      }
+    },
+    [filtered, activeIndex, onClose, onExecute],
   );
 
-  const flatItems = useMemo(
-    () => filteredSections.flatMap((section) => section.items),
-    [filteredSections],
-  );
+  if (!isOpen) return null;
 
-  const indexedSections = useMemo(
-    () =>
-      filteredSections.map((section, i) => ({
-        ...section,
-        start: filteredSections.slice(0, i).reduce((sum, s) => sum + s.items.length, 0),
-      })),
-    [filteredSections],
-  );
-
-  if (!open) return null;
-
-  const execute = (item: CommandItem | undefined) => {
-    if (!item) return;
-    onExecute?.(item.id);
-    onClose();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setIndex((i) => (flatItems.length === 0 ? 0 : (i + 1) % flatItems.length));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setIndex((i) => (flatItems.length === 0 ? 0 : (i - 1 + flatItems.length) % flatItems.length));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      execute(flatItems[index]);
-    }
-  };
+  let flatIndex = 0;
 
   return (
-    <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-background/70 px-4 pt-[122px] backdrop-blur-[4px] sm:px-0"
-    >
-      <div className="flex w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-high shadow-2xl shadow-black/80">
-        {/* Search Input */}
-        <div className="group relative flex items-center border-b border-outline-variant bg-surface-container-highest px-4 transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary">
-          <span className="material-symbols-outlined ml-1 shrink-0 text-primary">search</span>
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]" onKeyDown={handleKeyDown}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container shadow-2xl">
+        {/* Search input */}
+        <div className="flex items-center gap-3 border-b border-outline-variant px-4 py-3">
+          <span className="material-symbols-outlined text-on-surface-variant">search</span>
           <input
             ref={inputRef}
             type="text"
-            autoFocus
-            autoComplete="off"
-            spellCheck={false}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setIndex(0);
+              setActiveIndex(0);
             }}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a command or search..."
-            className="w-full select-none border-none bg-transparent py-5 px-4 font-code-md text-on-surface outline-none placeholder:text-on-surface-variant selection:bg-primary/30"
+            placeholder="Type a command..."
+            className="flex-1 bg-transparent font-body-md text-body-md text-on-surface outline-none placeholder:text-on-surface-variant/50"
           />
-          <div className="hidden shrink-0 items-center sm:flex">
-            <kbd className="rounded border border-outline-variant bg-surface px-1.5 py-0.5 font-code-sm uppercase tracking-wider text-[10px] text-on-surface-variant">
-              esc
-            </kbd>
-          </div>
+          <kbd className="rounded border border-outline-variant bg-surface-container-low px-1.5 py-0.5 font-code-sm text-[10px] text-on-surface-variant">
+            ESC
+          </kbd>
         </div>
 
-        {/* Command List */}
-        <div className="custom-scrollbar flex max-h-[512px] flex-col overflow-y-auto p-2">
-          {indexedSections.map((section, sectionIdx) => (
-            <React.Fragment key={section.title}>
-              <div
-                className={`mb-0.5 flex items-center justify-between px-3 py-2 ${
-                  sectionIdx > 0 ? "mt-2 border-t border-outline-variant/50" : "mt-1"
-                }`}
-              >
-                <span className="font-label-caps tracking-widest text-label-caps text-on-surface-variant">
-                  {section.title}
-                </span>
+        {/* Command list */}
+        <div ref={listRef} className="max-h-72 overflow-y-auto p-1">
+          {filtered.length === 0 && (
+            <div className="py-8 text-center font-body-sm text-body-sm text-on-surface-variant">
+              No matching commands
+            </div>
+          )}
+          {Array.from(grouped.entries()).map(([section, cmds]) => (
+            <div key={section}>
+              <div className="px-3 py-1.5 font-label-caps text-label-caps text-on-surface-variant/60">
+                {section}
               </div>
-              {section.items.map((item, itemIdx) => {
-                const current = section.start + itemIdx;
-                const isActive = current === index;
+              {cmds.map((cmd) => {
+                const idx = flatIndex++;
+                const isActive = idx === activeIndex;
                 return (
                   <button
-                    key={item.id}
-                    onMouseEnter={() => setIndex(current)}
-                    onClick={() => execute(item)}
-                    className={`group relative mb-0.5 flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    key={cmd.id}
+                    data-index={idx}
+                    onClick={() => {
+                      onExecute(cmd);
+                      onClose();
+                    }}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left font-body-sm text-body-sm transition-colors ${
                       isActive
-                        ? "border-primary/30 bg-surface-container"
-                        : "border-transparent hover:border-outline-variant/50 hover:bg-surface-container"
+                        ? "bg-surface-container-highest text-on-surface"
+                        : "text-on-surface-variant hover:bg-surface-container"
                     }`}
                   >
-                    {isActive && (
-                      <div className="absolute bottom-0 left-0 top-0 w-0.5 rounded-l bg-primary"></div>
+                    {cmd.icon && (
+                      <span className="material-symbols-outlined text-lg">{cmd.icon}</span>
                     )}
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-6 w-6 items-center justify-center transition-transform group-hover:scale-110 ${
-                          isActive
-                            ? "text-primary"
-                            : item.accentOnHover === "secondary"
-                              ? "text-on-surface-variant group-hover:text-secondary-container"
-                              : "text-on-surface-variant group-hover:text-primary"
-                        }`}
-                      >
-                        <span
-                          style={
-                            item.filled && isActive
-                              ? { fontVariationSettings: "'FILL' 1" }
-                              : undefined
-                          }
-                          className="material-symbols-outlined text-[20px]"
-                        >
-                          {item.icon}
-                        </span>
-                      </div>
-                      <span
-                        className={`font-body-md transition-colors ${
-                          isActive
-                            ? "font-medium text-on-surface"
-                            : "text-on-surface-variant group-hover:text-on-surface"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </div>
-                    {item.shortcut && (
-                      <div
-                        className={`flex items-center gap-1 transition-opacity ${
-                          isActive ? "opacity-80" : "opacity-60 group-hover:opacity-100"
-                        }`}
-                      >
-                        {item.shortcut.map((key) => (
-                          <kbd
-                            key={key}
-                            className="rounded border border-outline-variant bg-surface px-1.5 py-0.5 font-code-sm shadow-sm text-code-sm text-on-surface-variant"
-                          >
-                            {key}
-                          </kbd>
-                        ))}
-                      </div>
+                    <span className="flex-1">{cmd.label}</span>
+                    {cmd.shortcut && (
+                      <kbd className="rounded border border-outline-variant bg-surface-container-low px-1.5 py-0.5 font-code-sm text-[10px] text-on-surface-variant">
+                        {cmd.shortcut}
+                      </kbd>
                     )}
                   </button>
                 );
               })}
-            </React.Fragment>
+            </div>
           ))}
-          {flatItems.length === 0 && (
-            <p className="px-3 py-6 text-center font-body-md text-body-md text-on-surface-variant">
-              No commands match "{query}"
-            </p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-outline-variant bg-surface-container-lowest px-4 py-2">
-          <div className="flex items-center gap-4 text-on-surface-variant">
-            <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">keyboard_arrow_up</span>
-              <span className="-ml-1 material-symbols-outlined text-[14px]">
-                keyboard_arrow_down
-              </span>
-              <span className="font-body-sm text-[11px]">to navigate</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">keyboard_return</span>
-              <span className="font-body-sm text-[11px]">to select</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="font-body-sm uppercase tracking-wider text-[10px] text-on-surface-variant">
-              Obsidian Flux
-            </span>
-          </div>
         </div>
       </div>
     </div>

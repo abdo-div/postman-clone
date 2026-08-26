@@ -27,9 +27,10 @@ export const authService = {
     try {
       const response = await apiClient.post<AuthResponse>("/auth/register", data);
       return response.data;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: Record<string, string> }; code?: string };
       // Fallback for offline / demo mode
-      if (!err.response || err.code === "ERR_NETWORK") {
+      if (!axiosErr.response || axiosErr.code === "ERR_NETWORK") {
         const mockUser: User = {
           id: "demo-user-" + Date.now(),
           name: data.name || data.email.split("@")[0],
@@ -38,7 +39,7 @@ export const authService = {
         const mockToken = "mock_jwt_token_" + Date.now();
         return { token: mockToken, user: mockUser };
       }
-      throw new Error(err.response?.data?.error || err.response?.data?.message || "Registration failed");
+      throw new Error(axiosErr.response?.data?.error || axiosErr.response?.data?.message || "Registration failed", { cause: err });
     }
   },
 
@@ -46,9 +47,10 @@ export const authService = {
     try {
       const response = await apiClient.post<AuthResponse>("/auth/login", data);
       return response.data;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: Record<string, string> }; code?: string };
       // Fallback for offline / demo mode
-      if (!err.response || err.code === "ERR_NETWORK") {
+      if (!axiosErr.response || axiosErr.code === "ERR_NETWORK") {
         const mockUser: User = {
           id: "demo-user-" + Date.now(),
           name: data.email.split("@")[0],
@@ -57,7 +59,7 @@ export const authService = {
         const mockToken = "mock_jwt_token_" + Date.now();
         return { token: mockToken, user: mockUser };
       }
-      throw new Error(err.response?.data?.error || err.response?.data?.message || "Login failed");
+      throw new Error(axiosErr.response?.data?.error || axiosErr.response?.data?.message || "Login failed", { cause: err });
     }
   },
 

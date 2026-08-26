@@ -42,7 +42,7 @@ export const CollectionRunnerPage: React.FC<CollectionRunnerPageProps> = ({
   useEffect(() => {
     loadCollections();
     useEnvironmentStore.getState().loadEnvironments();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedCollection = collections.find((c) => c.id === runner.selectedCollectionId) || collections[0];
 
@@ -50,7 +50,7 @@ export const CollectionRunnerPage: React.FC<CollectionRunnerPageProps> = ({
     if (!runner.selectedCollectionId && collections.length > 0) {
       runner.setSelectedCollectionId(collections[0].id);
     }
-  }, [collections, runner.selectedCollectionId]);
+  }, [collections, runner.selectedCollectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRun = async () => {
     if (!selectedCollection) {

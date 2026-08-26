@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useHistoryStore } from "../../store/useHistoryStore";
 import { useWorkbenchStore } from "../../store/useWorkbenchStore";
 import { useToastStore } from "../../store/useToastStore";
+import type { HistoryItem } from "../../services/historyService";
 
 const METHOD_STYLES: Record<string, string> = {
   GET: "bg-emerald-400/10 text-emerald-400",
@@ -37,11 +38,11 @@ export const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ onOpen }) =>
 
   useEffect(() => {
     load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const visible = useMemo(() => getFiltered(), [items, searchQuery, filterMethod, filterStatus]);
+  const visible = useMemo(() => getFiltered(), [items, searchQuery, filterMethod, filterStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleOpen = (item: any) => {
+  const handleOpen = (item: HistoryItem) => {
     loadRequest({
       method: item.method,
       url: item.url,

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { HeaderItem, ParamItem } from "../services/collectionService";
+import type { HeaderItem, ParamItem, RequestItem } from "../services/collectionService";
 import type { TestAssertionResult } from "../services/executorService";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "HEAD";
@@ -15,7 +15,7 @@ export interface ExecutionResponse {
   durationMs: number;
   sizeBytes: number;
   headers: Record<string, string>;
-  data: any;
+  data: string | Record<string, unknown>;
   dataText: string;
   testResults: TestAssertionResult[];
   updatedEnvVars?: Record<string, string>;
@@ -57,10 +57,10 @@ interface WorkbenchState {
   setRequestName: (name: string) => void;
   setLinkedCollectionId: (id: string | null) => void;
   setLinkedRequestId: (id: string | null) => void;
-  setParam: (id: string, field: keyof ParamItem, val: any) => void;
+  setParam: (id: string, field: keyof ParamItem, val: string | boolean) => void;
   addParam: () => void;
   deleteParam: (id: string) => void;
-  setHeader: (id: string, field: keyof HeaderItem, val: any) => void;
+  setHeader: (id: string, field: keyof HeaderItem, val: string | boolean) => void;
   addHeader: () => void;
   deleteHeader: (id: string) => void;
   setBodyType: (bt: BodyType) => void;
@@ -90,7 +90,7 @@ interface WorkbenchState {
     queryParams?: ParamItem[];
     bodyType?: BodyType;
     body?: string;
-    auth?: any;
+    auth?: RequestItem["auth"];
     testsScript?: string;
     preRequestScript?: string;
   }) => void;
@@ -208,7 +208,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       params,
       bodyType: req.bodyType || "none",
       body: req.body || "",
-      authType: req.auth?.type || "none",
+      authType: (req.auth?.type || "none") as AuthType,
       bearerToken: req.auth?.token || "",
       basicAuth: {
         username: req.auth?.username || "",
