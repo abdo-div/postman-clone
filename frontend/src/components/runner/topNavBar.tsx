@@ -1,73 +1,73 @@
 import React from "react";
+import { useAuthStore } from "../../store/useAuthStore";
 
 interface TopNavBarProps {
   onBrandClick?: () => void;
   onNavigate?: (item: string) => void;
   onImportClick?: () => void;
+  onRunCollection?: () => void;
 }
 
-const navItems = ["Workspaces", "Environments", "History"];
+const navItems = [
+  { label: "Workbench", view: "workbench" },
+  { label: "Environments", view: "environments" },
+  { label: "History", view: "history" },
+];
 
 const actionIcons = ["settings", "help", "notifications"];
 
-export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate, onImportClick }) => {
+export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate, onImportClick, onRunCollection }) => {
+  const { user } = useAuthStore();
+
   return (
-    <header className="fixed top-0 left-0 z-50 flex h-12 w-full items-center justify-between border-b border-outline-variant bg-surface-container-low px-4">
-      <div className="flex items-center gap-density-spacious">
+    <header className="fixed top-0 left-0 z-50 flex h-12 w-full items-center justify-between border-b border-[#2b354b] bg-[#151b2d] px-4">
+      <div className="flex items-center gap-6">
         <button
           onClick={onBrandClick}
-          className="mr-4 font-headline-md text-headline-md font-bold text-primary"
+          className="text-[17px] font-bold text-[#4cd7f6] flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
+          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>api</span>
           API Workbench
         </button>
 
-        <div className="flex items-center rounded border border-slate-800 bg-slate-900 px-density-comfortable py-[2px] transition-colors focus-within:border-cyan-accent">
-          <span className="material-symbols-outlined mr-2 text-[16px] text-slate-500">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="h-6 w-48 border-none bg-transparent p-0 font-code-sm text-code-sm text-on-surface outline-none placeholder:text-slate-500"
-          />
+        <div className="hidden md:flex items-center h-full">
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => onNavigate?.(item.view)}
+              className="flex h-full items-center px-3 text-xs text-slate-400 hover:text-white transition-colors"
+            >
+              {item.label}
+            </button>
+          ))}
+          <button className="mt-1 flex h-full items-center border-b-2 border-[#4cd7f6] px-3 pb-1 text-[#4cd7f6] text-xs font-semibold">
+            Collection Runner
+          </button>
         </div>
       </div>
 
-      <nav className="flex h-full items-center">
-        <ul className="flex h-full">
-          {navItems.map((item) => (
-            <li
-              key={item}
-              onClick={() => onNavigate?.(item)}
-              className="flex h-full cursor-pointer items-center px-4 text-on-surface-variant transition-colors hover:bg-surface-container-highest active:scale-95"
-            >
-              <span className="font-body-md text-body-md">{item}</span>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="flex items-center gap-density-comfortable">
+      <div className="flex items-center gap-3">
         <button
           onClick={() => onImportClick?.()}
-          className="rounded border border-slate-800 bg-slate-900 px-3 py-1 font-body-sm text-body-sm text-on-surface transition-colors hover:border-cyan-accent"
+          className="text-xs font-medium text-slate-300 hover:text-white bg-[#192237] border border-[#2b354b] px-3 py-1 rounded transition-colors"
         >
           Import
         </button>
-        <button className="rounded bg-cyan-accent px-3 py-1 font-body-sm text-body-sm font-semibold text-slate-950 transition-opacity hover:opacity-90">
-          Run Collection
+        <button
+          onClick={onRunCollection}
+          className="flex items-center gap-1.5 rounded bg-[#4cd7f6] px-3 py-1 text-xs font-bold text-[#003640] transition-opacity hover:opacity-90 active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[16px]">play_arrow</span> Run Collection
         </button>
-        <div className="ml-2 flex items-center gap-unit text-slate-400">
+        <div className="ml-2 flex items-center gap-2 border-l border-[#2b354b] pl-3">
           {actionIcons.map((icon) => (
-            <button key={icon} className="p-1 transition-colors hover:text-cyan-accent">
-              <span className="material-symbols-outlined text-[20px]">{icon}</span>
+            <button key={icon} className="p-1 text-slate-400 transition-colors hover:text-[#4cd7f6]">
+              <span className="material-symbols-outlined text-[18px]">{icon}</span>
             </button>
           ))}
-          <img
-            alt="User profile"
-            className="ml-2 h-6 w-6 rounded-full border border-slate-700 object-cover"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjbXEYqJT5gFkG1jVRbZEqJMaWbAVfdCpZxlPezyl7L2byP7cD2qnkYPQBXNRKpYUigH5-a0PpsHDyNzLnzuq9ADsfhxydKF9Cw-Ys9LPRmlsZbJUw_QCLYVUQljAAzW_DrjMOahdTcZFhxPxiehiLceUflOASD4R70kpIPCBHqoyyhl9s5nyY2AeD-8cgamH80sDKTkKij2SMJq_JL40aFKwS-NPA8FwIr1U6mUCLmlEBsXnPvOPO"
-          />
+          <div className="ml-1 h-7 w-7 rounded-full bg-[#571bc1] flex items-center justify-center text-xs font-bold text-white border border-[#2b354b]">
+            {user?.name?.slice(0, 2).toUpperCase() || "GU"}
+          </div>
         </div>
       </div>
     </header>

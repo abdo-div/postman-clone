@@ -80,7 +80,7 @@ export const collectionService = {
     try {
       const res = await apiClient.get<{ success: boolean; data: any[] }>("/collections");
       const list = res.data?.data || res.data;
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         const formatted = list.map((c) => ({
           id: c._id || c.id,
           name: c.name,

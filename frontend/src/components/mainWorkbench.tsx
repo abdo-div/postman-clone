@@ -27,6 +27,22 @@ const METHOD_COLORS: Record<HttpMethod, string> = {
 
 const HTTP_METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"];
 
+interface EngineSettings {
+  timeoutMs: number;
+  followRedirects: boolean;
+  validateSsl: boolean;
+}
+
+const DEFAULT_ENGINE_SETTINGS: EngineSettings = { timeoutMs: 15000, followRedirects: true, validateSsl: true };
+
+function readEngineSettings(): EngineSettings {
+  try {
+    return { ...DEFAULT_ENGINE_SETTINGS, ...JSON.parse(localStorage.getItem("workbench_settings") || "{}") };
+  } catch {
+    return DEFAULT_ENGINE_SETTINGS;
+  }
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -76,7 +92,7 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
 
   const [sidebarTab, setSidebarTab] = useState<"Collections" | "Environments" | "History">("Collections");
   const [collectionSearch, setCollectionSearch] = useState("");
-  const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set(["col-users"]));
+  const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [showMethodMenu, setShowMethodMenu] = useState(false);
   const [showEnvMenu, setShowEnvMenu] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -92,6 +108,7 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
   const [selectedSnippetLang, setSelectedSnippetLang] = useState<"curl" | "fetch" | "axios" | "python" | "go">("curl");
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [engineSettings, setEngineSettings] = useState<EngineSettings>(readEngineSettings);
 
   // Context menus
   const [collectionMenuId, setCollectionMenuId] = useState<string | null>(null);
@@ -107,11 +124,14 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
     });
   }, []);
 
-  // Load first request initially if not set
+  // Expand first collection and auto-select its first request once loaded
   useEffect(() => {
-    if (collections.length > 0 && !activeRequestId) {
-      const firstCollection = collections[0];
-      const firstRequest = firstCollection.requests?.[0];
+    if (collections.length === 0) return;
+    const firstId = collections[0].id;
+    setExpandedCollections((prev) => (prev.has(firstId) ? prev : new Set(prev).add(firstId)));
+
+    if (!activeRequestId) {
+      const firstRequest = collections[0].requests?.[0];
       if (firstRequest) {
         setActiveRequestId(firstRequest.id);
         wb.loadRequest(firstRequest);
@@ -221,7 +241,7 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
         headers: interpolatedHeaders,
         body: bodyToSend,
         environmentVariables: envVars,
-        timeoutMs: 15000,
+        timeoutMs: engineSettings.timeoutMs,
       });
 
       // Run post-response test assertions
@@ -524,7 +544,9 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                 <span className="material-symbols-outlined text-[14px]">arrow_drop_down</span>
               </button>
               {showEnvMenu && (
-                <div className="absolute left-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-2xl z-50 min-w-[200px] py-1">
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowEnvMenu(false)} />
+                  <div className="absolute left-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-2xl z-50 min-w-[200px] py-1">
                   <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Environments</div>
                   {environments.map((env) => (
                     <button
@@ -550,7 +572,8 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                       Manage Environments
                     </button>
                   </div>
-                </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -724,7 +747,9 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                           <span className="material-symbols-outlined text-[14px]">more_vert</span>
                         </button>
                         {collectionMenuId === col.id && (
-                          <div className="absolute right-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-xl z-50 min-w-[130px] py-1 text-xs">
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setCollectionMenuId(null)} />
+                            <div className="absolute right-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-xl z-50 min-w-[130px] py-1 text-xs">
                             <button
                               onClick={() => { handleAddNewRequestToCol(col.id); setCollectionMenuId(null); }}
                               className="w-full text-left px-3 py-1.5 text-slate-200 hover:bg-[#20293f] flex items-center gap-1.5"
@@ -743,7 +768,8 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                             >
                               <span className="material-symbols-outlined text-[13px]">delete</span> Delete
                             </button>
-                          </div>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -772,20 +798,23 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                                 <span className="material-symbols-outlined text-[13px]">more_vert</span>
                               </button>
                               {requestMenuId === req.id && (
-                                <div className="absolute right-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-xl z-50 min-w-[120px] py-1 text-xs">
-                                  <button
-                                    onClick={() => handleDuplicateRequest(col.id, req.id)}
-                                    className="w-full text-left px-3 py-1.5 text-slate-200 hover:bg-[#20293f] flex items-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[13px]">content_copy</span> Duplicate
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteRequest(col.id, req.id, req.name)}
-                                    className="w-full text-left px-3 py-1.5 text-red-400 hover:bg-red-500/10 flex items-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[13px]">delete</span> Delete
-                                  </button>
-                                </div>
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setRequestMenuId(null)} />
+                                  <div className="absolute right-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-xl z-50 min-w-[120px] py-1 text-xs">
+                                    <button
+                                      onClick={() => handleDuplicateRequest(col.id, req.id)}
+                                      className="w-full text-left px-3 py-1.5 text-slate-200 hover:bg-[#20293f] flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[13px]">content_copy</span> Duplicate
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteRequest(col.id, req.id, req.name)}
+                                      className="w-full text-left px-3 py-1.5 text-red-400 hover:bg-red-500/10 flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[13px]">delete</span> Delete
+                                    </button>
+                                  </div>
+                                </>
                               )}
                             </div>
                           </div>
@@ -936,7 +965,9 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                 <span className="material-symbols-outlined text-[16px] text-slate-400">arrow_drop_down</span>
               </button>
               {showMethodMenu && (
-                <div className="absolute left-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-2xl z-50 py-1 min-w-[110px]">
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMethodMenu(false)} />
+                  <div className="absolute left-0 top-full mt-1 bg-[#151b2d] border border-[#2b354b] rounded-lg shadow-2xl z-50 py-1 min-w-[110px]">
                   {HTTP_METHODS.map((m) => (
                     <button
                       key={m}
@@ -946,7 +977,8 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                       {m}
                     </button>
                   ))}
-                </div>
+                  </div>
+                </>
               )}
             </div>
 
@@ -1593,25 +1625,37 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
                 <label className="block text-slate-300 font-medium mb-1">Request Timeout (ms)</label>
                 <input
                   type="number"
-                  defaultValue={15000}
+                  value={engineSettings.timeoutMs}
+                  onChange={(e) => setEngineSettings({ ...engineSettings, timeoutMs: Math.max(1000, parseInt(e.target.value) || 15000) })}
                   className="w-full bg-[#070d1f] border border-[#2b354b] rounded px-3 py-2 text-white outline-none focus:border-cyan-400"
                 />
               </div>
               <div className="flex items-center justify-between py-2 border-t border-[#2b354b]">
                 <span className="text-slate-300">Follow Redirects</span>
-                <input type="checkbox" defaultChecked className="accent-cyan-400 w-4 h-4" />
+                <input
+                  type="checkbox"
+                  checked={engineSettings.followRedirects}
+                  onChange={(e) => setEngineSettings({ ...engineSettings, followRedirects: e.target.checked })}
+                  className="accent-cyan-400 w-4 h-4"
+                />
               </div>
               <div className="flex items-center justify-between py-2 border-t border-[#2b354b]">
                 <span className="text-slate-300">SSL Certificate Validation</span>
-                <input type="checkbox" defaultChecked className="accent-cyan-400 w-4 h-4" />
+                <input
+                  type="checkbox"
+                  checked={engineSettings.validateSsl}
+                  onChange={(e) => setEngineSettings({ ...engineSettings, validateSsl: e.target.checked })}
+                  className="accent-cyan-400 w-4 h-4"
+                />
               </div>
             </div>
 
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => {
+                  localStorage.setItem("workbench_settings", JSON.stringify(engineSettings));
                   setShowSettingsModal(false);
-                  addToast({ type: "success", title: "Settings updated" });
+                  addToast({ type: "success", title: "Settings saved", description: `Timeout ${engineSettings.timeoutMs}ms` });
                 }}
                 className="px-4 py-2 bg-cyan-400 text-slate-900 font-bold rounded-lg text-xs"
               >

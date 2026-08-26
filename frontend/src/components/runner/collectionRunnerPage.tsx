@@ -41,9 +41,16 @@ export const CollectionRunnerPage: React.FC<CollectionRunnerPageProps> = ({
 
   useEffect(() => {
     loadCollections();
+    useEnvironmentStore.getState().loadEnvironments();
   }, []);
 
   const selectedCollection = collections.find((c) => c.id === runner.selectedCollectionId) || collections[0];
+
+  useEffect(() => {
+    if (!runner.selectedCollectionId && collections.length > 0) {
+      runner.setSelectedCollectionId(collections[0].id);
+    }
+  }, [collections, runner.selectedCollectionId]);
 
   const handleRun = async () => {
     if (!selectedCollection) {
@@ -67,7 +74,7 @@ export const CollectionRunnerPage: React.FC<CollectionRunnerPageProps> = ({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-on-surface">
-      <TopNavBar onBrandClick={onExit} onNavigate={onNavigate} onImportClick={onImport} />
+      <TopNavBar onBrandClick={onExit} onNavigate={onNavigate} onImportClick={onImport} onRunCollection={handleRun} />
 
       <main className="flex flex-1 flex-col overflow-hidden pt-12">
         {/* Header */}
