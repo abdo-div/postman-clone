@@ -133,6 +133,7 @@ export function MainWorkbench({
     environments,
     setActiveEnvironmentId,
     activeEnvironmentId,
+    updateVariable,
   } = useEnvironmentStore();
 
   const { addItem: addHistory } = useHistoryStore();
@@ -200,20 +201,31 @@ export function MainWorkbench({
     });
   };
 
-  const executePreRequestScript = (script: string, envVars: Record<string, string>) => {
-    if (!script || !script.trim()) return envVars;
+  const executePreRequestScript = (
+    script: string,
+    envVars: Record<string, string>,
+  ): { envVars: Record<string, string>; changedKeys: string[] } => {
+    if (!script || !script.trim()) return { envVars, changedKeys: [] };
     const modifiedEnv = { ...envVars };
+    const changedKeys: string[] = [];
+    const originalEnv = { ...envVars };
     try {
       const pm = {
         environment: {
           get: (k: string) => modifiedEnv[k],
-          set: (k: string, v: string | number | boolean) => { modifiedEnv[k] = String(v); },
+          set: (k: string, v: string | number | boolean) => {
+            modifiedEnv[k] = String(v);
+            if (originalEnv[k] !== String(v)) changedKeys.push(k);
+          },
           has: (k: string) => k in modifiedEnv,
-          unset: (k: string) => { delete modifiedEnv[k]; },
+          unset: (k: string) => { delete modifiedEnv[k]; changedKeys.push(k); },
         },
         variables: {
           get: (k: string) => modifiedEnv[k],
-          set: (k: string, v: string | number | boolean) => { modifiedEnv[k] = String(v); },
+          set: (k: string, v: string | number | boolean) => {
+            modifiedEnv[k] = String(v);
+            if (originalEnv[k] !== String(v)) changedKeys.push(k);
+          },
         },
       };
       const fn = new Function("pm", script);
@@ -222,7 +234,7 @@ export function MainWorkbench({
       const msg = e instanceof Error ? e.message : "Unknown error";
       addToast({ type: "warning", title: "Pre-request script error", description: msg });
     }
-    return modifiedEnv;
+    return { envVars: modifiedEnv, changedKeys: [...new Set(changedKeys)] };
   };
 
   const buildFinalUrl = (url: string, params: ParamItem[], envVars: Record<string, string>) => {
@@ -242,9 +254,23 @@ export function MainWorkbench({
 
     let envVars = getVariablesMap();
 
-    // Execute pre-request script
+    // Execute pre-request script and persist changes back to environment store
     if (wb.preRequestScript.trim()) {
-      envVars = executePreRequestScript(wb.preRequestScript, envVars);
+      const result = executePreRequestScript(wb.preRequestScript, envVars);
+      envVars = result.envVars;
+
+      // Persist changed variables back to the active environment
+      if (result.changedKeys.length > 0) {
+        const activeEnv = getActiveEnvironment();
+        if (activeEnv) {
+          for (const key of result.changedKeys) {
+            const variable = activeEnv.variables.find((v) => v.key === key);
+            if (variable) {
+              updateVariable(activeEnv.id, variable.id, { currentValue: envVars[key] });
+            }
+          }
+        }
+      }
     }
 
     const interpolatedUrl = buildFinalUrl(interpolate(wb.url), wb.params, envVars);
