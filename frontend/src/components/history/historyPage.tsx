@@ -1,4 +1,3 @@
-import React from "react";
 import { TopNavBar } from "./topNavBar";
 import { SideNavBar } from "./sideNavBar";
 import { ExecutionHistory } from "./executionHistory";
@@ -10,12 +9,12 @@ interface HistoryPageProps {
   onOpenRequest?: () => void;
 }
 
-export const HistoryPage: React.FC<HistoryPageProps> = ({
+export function HistoryPage({
   onExit,
   onNavigate,
   onImport,
   onOpenRequest,
-}) => {
+}: HistoryPageProps) {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-950 font-body-md text-on-background">
       <TopNavBar onBrandClick={onExit} onNavigate={onNavigate} onImportClick={onImport} />
@@ -28,4 +27,4 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
       </div>
     </div>
   );
-};
+}

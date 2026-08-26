@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useWorkbenchStore, type HttpMethod } from "../store/useWorkbenchStore";
 import { useCollectionStore } from "../store/useCollectionStore";
 import { useEnvironmentStore } from "../store/useEnvironmentStore";
@@ -106,11 +106,11 @@ function parseErrorMessage(msg: string): { type: string; icon: string; message: 
   };
 }
 
-export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
+export function MainWorkbench({
   onNavigate,
   onImport,
   onLogout,
-}) => {
+}: MainWorkbenchProps) {
   const wb = useWorkbenchStore();
   const {
     collections,
@@ -1872,4 +1872,4 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
       )}
     </div>
   );
-};
+}

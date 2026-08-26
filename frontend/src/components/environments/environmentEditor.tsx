@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useEnvironmentStore } from "../../store/useEnvironmentStore";
 import { useToastStore } from "../../store/useToastStore";
 
@@ -9,7 +9,7 @@ interface EnvironmentEditorProps {
 const tabs = ["Variables", "Details"] as const;
 type Tab = (typeof tabs)[number];
 
-export const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentId }) => {
+export function EnvironmentEditor({ environmentId }: EnvironmentEditorProps) {
   const { environments, addVariable, updateVariable, deleteVariable, updateEnvironmentName, saveEnvironmentChanges } = useEnvironmentStore();
   const { addToast } = useToastStore();
   const [activeTab, setActiveTab] = useState<Tab>("Variables");
@@ -179,4 +179,4 @@ export const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmen
       )}
     </div>
   );
-};
+}

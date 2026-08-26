@@ -1,5 +1,3 @@
-import React from "react";
-
 type Tone = "emerald" | "amber" | "violet";
 
 const toneClasses: Record<Tone, string> = {
@@ -23,7 +21,7 @@ const executedRows: ExecutedRow[] = [
   { id: "r3", method: "PATCH", tone: "violet", endpoint: "/api/v2/users/me/address", status: "200", time: "92ms" },
 ];
 
-export const RunnerPreview: React.FC = () => {
+export function RunnerPreview() {
   return (
     <div className="z-10 mx-12 flex w-full max-w-2xl flex-col overflow-hidden rounded-[8px] border border-outline-variant bg-surface-container-low shadow-2xl backdrop-blur-sm">
       {/* Window Header */}
@@ -151,4 +149,4 @@ export const RunnerPreview: React.FC = () => {
       </div>
     </div>
   );
-};
+}

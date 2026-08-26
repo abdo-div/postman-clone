@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity,
@@ -75,7 +75,7 @@ const LinkedinIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+export function LandingPage({ onGetStarted }: LandingPageProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -672,4 +672,4 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </footer>
     </div>
   );
-};
+}

@@ -8,7 +8,7 @@ interface CommandPaletteProps {
   onExecute: (command: Command) => void;
 }
 
-export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onExecute }) => {
+export function CommandPalette({ isOpen, onClose, onExecute }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -150,4 +150,4 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
       </div>
     </div>
   );
-};
+}

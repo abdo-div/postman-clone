@@ -28,11 +28,11 @@ function statusColor(status?: number): string {
   return "text-amber-400";
 }
 
-export const CollectionRunnerPage: React.FC<CollectionRunnerPageProps> = ({
+export function CollectionRunnerPage({
   onExit,
   onNavigate,
   onImport,
-}) => {
+}: CollectionRunnerPageProps) {
   const runner = useRunnerStore();
   const { collections, loadCollections } = useCollectionStore();
   const { getVariablesMap, environments, activeEnvironmentId, setActiveEnvironmentId } = useEnvironmentStore();
@@ -373,4 +373,4 @@ export const CollectionRunnerPage: React.FC<CollectionRunnerPageProps> = ({
       </main>
     </div>
   );
-};
+}

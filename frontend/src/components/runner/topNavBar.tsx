@@ -1,4 +1,3 @@
-import React from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 
 interface TopNavBarProps {
@@ -16,7 +15,7 @@ const navItems = [
 
 const actionIcons = ["settings", "help", "notifications"];
 
-export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate, onImportClick, onRunCollection }) => {
+export function TopNavBar({ onBrandClick, onNavigate, onImportClick, onRunCollection }: TopNavBarProps) {
   const { user } = useAuthStore();
 
   return (
@@ -72,4 +71,4 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick, onNavigate, 
       </div>
     </header>
   );
-};
+}

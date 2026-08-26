@@ -41,7 +41,7 @@ const jsonLines: React.ReactNode[] = [
   <span className="text-on-surface-variant">{"}"}</span>,
 ];
 
-export const IdePreview: React.FC = () => {
+export function IdePreview() {
   return (
     <div className="relative z-10 flex h-[600px] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low shadow-2xl">
       {/* Window Header */}
@@ -183,4 +183,4 @@ export const IdePreview: React.FC = () => {
       </div>
     </div>
   );
-};
+}

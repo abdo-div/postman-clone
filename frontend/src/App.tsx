@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { LandingPage } from "./components/landingPage";
-import { CollectionRunnerPage } from "./components/runner/collectionRunnerPage";
-import { EnvironmentPage } from "./components/environments/environmentPage";
-import { ImportPage } from "./components/importApi/importPage";
-import { HistoryPage } from "./components/history/historyPage";
-import { TestEditorPage } from "./components/testEditor/testEditorPage";
-import { SignInPage } from "./components/auth/signInPage";
-import { SignUpPage } from "./components/auth/signUpPage";
-import { ForgotPasswordPage } from "./components/auth/forgotPasswordPage";
-import { MainWorkbench } from "./components/mainWorkbench";
-import { ToastContainer } from "./components/common/ToastContainer";
-import { CommandPalette } from "./components/commandPalette/commandPalette";
-import { useAuthStore } from "./store/useAuthStore";
-import { useWorkbenchStore } from "./store/useWorkbenchStore";
+import {
+  LandingPage,
+  CollectionRunnerPage,
+  EnvironmentPage,
+  ImportPage,
+  HistoryPage,
+  TestEditorPage,
+  SignInPage,
+  SignUpPage,
+  ForgotPasswordPage,
+  MainWorkbench,
+  ToastContainer,
+  CommandPalette,
+} from "./components";
+import { useAuthStore, useWorkbenchStore } from "./store";
 
 export type View =
   | "landing"

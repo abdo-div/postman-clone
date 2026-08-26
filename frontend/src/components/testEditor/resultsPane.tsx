@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { AssertionStatus } from "./types";
 import type { TestAssertionResult } from "../../services/executorService";
 
@@ -12,7 +12,7 @@ const statusFilters: { id: "all" | AssertionStatus; label: string }[] = [
   { id: "failed", label: "Failed" },
 ];
 
-export const ResultsPane: React.FC<ResultsPaneProps> = ({ testResults }) => {
+export function ResultsPane({ testResults }: ResultsPaneProps) {
   const [filter, setFilter] = useState<"all" | AssertionStatus>("all");
 
   const mapped = useMemo(
@@ -168,4 +168,4 @@ export const ResultsPane: React.FC<ResultsPaneProps> = ({ testResults }) => {
       </div>
     </div>
   );
-};
+}

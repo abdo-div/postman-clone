@@ -11,7 +11,7 @@ interface ImportModalProps {
 
 type ImportTab = "file" | "url" | "text" | "curl";
 
-export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onConfirm }) => {
+export function ImportModal({ open, onClose, onConfirm }: ImportModalProps) {
   const [activeTab, setActiveTab] = useState<ImportTab>("file");
   const [rawText, setRawText] = useState("");
   const [urlInput, setUrlInput] = useState("");
@@ -250,4 +250,4 @@ export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onConfi
       </div>
     </div>
   );
-};
+}

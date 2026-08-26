@@ -1,4 +1,3 @@
-import React from "react";
 import { TopNavBar } from "./topNavBar";
 import { SideNavBar } from "./sideNavBar";
 import { EditorPane } from "./editorPane";
@@ -33,11 +32,11 @@ function formatBytes(bytes = 0): string {
   return `${(bytes / 1024).toFixed(1)}KB`;
 }
 
-export const TestEditorPage: React.FC<TestEditorPageProps> = ({
+export function TestEditorPage({
   onBack,
   onNavigate,
   onImport,
-}) => {
+}: TestEditorPageProps) {
   const wb = useWorkbenchStore();
   const response = wb.response;
 
@@ -148,4 +147,4 @@ export const TestEditorPage: React.FC<TestEditorPageProps> = ({
       </div>
     </div>
   );
-};
+}

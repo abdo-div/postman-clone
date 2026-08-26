@@ -9,7 +9,7 @@ interface SignUpFormProps {
 const inputClasses =
   "w-full rounded-xs border border-outline-variant bg-surface-container-low px-3 py-2.5 font-code-md text-code-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary";
 
-export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSignIn }) => {
+export function SignUpForm({ onSuccess, onSwitchToSignIn }: SignUpFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -212,4 +212,4 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToSig
       </div>
     </>
   );
-};
+}

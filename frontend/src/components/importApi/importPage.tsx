@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { TopNavBar } from "./topNavBar";
 import { SideNavBar } from "./sideNavBar";
 import { ImportModal } from "./importModal";
@@ -8,7 +8,7 @@ interface ImportPageProps {
   onImportSuccess?: () => void;
 }
 
-export const ImportPage: React.FC<ImportPageProps> = ({ onExit, onImportSuccess }) => {
+export function ImportPage({ onExit, onImportSuccess }: ImportPageProps) {
   const [open, setOpen] = useState(true);
 
   return (
@@ -38,4 +38,4 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onExit, onImportSuccess 
       />
     </div>
   );
-};
+}

@@ -6,7 +6,7 @@ interface SignInFormProps {
   onForgotPassword?: () => void;
 }
 
-export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess, onForgotPassword }) => {
+export function SignInForm({ onSuccess, onForgotPassword }: SignInFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -176,4 +176,4 @@ export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess, onForgotPassw
       </div>
     </>
   );
-};
+}

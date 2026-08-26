@@ -1,5 +1,3 @@
-import React from "react";
-
 interface TopNavBarProps {
   onBrandClick?: () => void;
 }
@@ -12,7 +10,7 @@ const navItems = [
 
 const actionIcons = ["settings", "help", "notifications"];
 
-export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick }) => {
+export function TopNavBar({ onBrandClick }: TopNavBarProps) {
   return (
     <header className="z-50 flex h-12 w-full items-center justify-between border-b border-outline-variant bg-surface-container-low px-4">
       <div className="flex items-center gap-6">
@@ -70,4 +68,4 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({ onBrandClick }) => {
       </div>
     </header>
   );
-};
+}

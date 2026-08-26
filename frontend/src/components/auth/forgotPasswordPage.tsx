@@ -4,7 +4,7 @@ interface ForgotPasswordPageProps {
   onBack?: () => void;
 }
 
-export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onBack }) => {
+export function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
   const [email, setEmail] = useState("");
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
@@ -116,4 +116,4 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onBack }
       </main>
     </div>
   );
-};
+}

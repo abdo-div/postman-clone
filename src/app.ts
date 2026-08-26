@@ -16,7 +16,7 @@ import importerRouter from "./modules/importer/importer.routes.js";
 import workspaceRouter from "./modules/workspace/workspace.routes.js";
 import { httpLogger } from "./middlewares/logger.middleware.js";
 import healthRoutes from "./modules/health/health.routes.js";
-import authRoutes from "./routes/auth.routes.js";
+import authRoutes from "./modules/auth/auth.routes.js";
 import { setupSwagger } from "./middlewares/swagger.middleware.js";
 
 const app: Application = express();

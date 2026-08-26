@@ -1,4 +1,3 @@
-import React from "react";
 import { useToastStore, type ToastMessage } from "../../store/useToastStore";
 
 const iconMap: Record<ToastMessage["type"], string> = {
@@ -22,7 +21,7 @@ const iconColorMap: Record<ToastMessage["type"], string> = {
   info: "text-cyan-400",
 };
 
-const ToastItem: React.FC<{ toast: ToastMessage }> = ({ toast }) => {
+function ToastItem({ toast }: { toast: ToastMessage }) {
   const removeToast = useToastStore((s) => s.removeToast);
 
   return (
@@ -50,9 +49,9 @@ const ToastItem: React.FC<{ toast: ToastMessage }> = ({ toast }) => {
       </button>
     </div>
   );
-};
+}
 
-export const ToastContainer: React.FC = () => {
+export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts);
 
   if (toasts.length === 0) return null;
@@ -66,4 +65,4 @@ export const ToastContainer: React.FC = () => {
       ))}
     </div>
   );
-};
+}

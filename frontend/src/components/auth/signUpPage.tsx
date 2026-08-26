@@ -1,4 +1,3 @@
-import React from "react";
 import { SignUpForm } from "./signUpForm";
 import { RunnerPreview } from "./runnerPreview";
 
@@ -7,7 +6,7 @@ interface SignUpPageProps {
   onSwitchToSignIn?: () => void;
 }
 
-export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onSwitchToSignIn }) => {
+export function SignUpPage({ onSuccess, onSwitchToSignIn }: SignUpPageProps) {
   return (
     <div className="flex min-h-screen bg-surface-container-lowest font-body-md text-on-surface selection:bg-primary selection:text-on-primary">
       {/* Left Pane: Form */}
@@ -43,4 +42,4 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSuccess, onSwitchToSig
       </div>
     </div>
   );
-};
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useHistoryStore } from "../../store/useHistoryStore";
 import { useWorkbenchStore } from "../../store/useWorkbenchStore";
 import { useToastStore } from "../../store/useToastStore";
@@ -30,7 +30,7 @@ interface ExecutionHistoryProps {
   onOpen?: () => void;
 }
 
-export const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ onOpen }) => {
+export function ExecutionHistory({ onOpen }: ExecutionHistoryProps) {
   const { items, load, clearAll, searchQuery, filterMethod, filterStatus, setSearchQuery, setFilterMethod, setFilterStatus, getFiltered } = useHistoryStore();
   const loadRequest = useWorkbenchStore((s) => s.loadRequest);
   const { addToast } = useToastStore();
@@ -228,4 +228,4 @@ export const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ onOpen }) =>
       </div>
     </div>
   );
-};
+}

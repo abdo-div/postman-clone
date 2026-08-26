@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { TopNavBar } from "./topNavBar";
 import { SideNavBar } from "./sideNavBar";
 import { EnvironmentListPane } from "./environmentListPane";
@@ -12,7 +12,7 @@ interface EnvironmentPageProps {
   onImport?: () => void;
 }
 
-export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onNavigate, onImport }) => {
+export function EnvironmentPage({ onExit, onNavigate, onImport }: EnvironmentPageProps) {
   const { environments, activeEnvironmentId, setActiveEnvironmentId, loadEnvironments, addEnvironment, deleteEnvironment, isLoading } = useEnvironmentStore();
   const { addToast } = useToastStore();
 
@@ -77,4 +77,4 @@ export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onNavi
       </div>
     </div>
   );
-};
+}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { Environment } from "../../services/environmentService";
 
 interface EnvironmentListPaneProps {
@@ -9,13 +9,13 @@ interface EnvironmentListPaneProps {
   onDelete?: (id: string, name: string) => void;
 }
 
-export const EnvironmentListPane: React.FC<EnvironmentListPaneProps> = ({
+export function EnvironmentListPane({
   environments,
   activeId,
   onSelect,
   onCreate,
   onDelete,
-}) => {
+}: EnvironmentListPaneProps) {
   const [filter, setFilter] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -141,4 +141,4 @@ export const EnvironmentListPane: React.FC<EnvironmentListPaneProps> = ({
       </div>
     </div>
   );
-};
+}

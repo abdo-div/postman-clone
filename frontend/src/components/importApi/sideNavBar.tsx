@@ -1,5 +1,3 @@
-import React from "react";
-
 const workspace = { name: "Main Workspace", team: "Developer Team" };
 
 const mainNavItems = [
@@ -14,7 +12,7 @@ const footerNavItems = [
   { icon: "delete", label: "Trash" },
 ];
 
-export const SideNavBar: React.FC = () => {
+export function SideNavBar() {
   return (
     <aside className="z-40 hidden h-full w-64 shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest transition-all duration-200 ease-in-out md:flex">
       <div className="border-b border-outline-variant p-4">
@@ -64,4 +62,4 @@ export const SideNavBar: React.FC = () => {
       </div>
     </aside>
   );
-};
+}

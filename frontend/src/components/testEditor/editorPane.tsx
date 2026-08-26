@@ -1,12 +1,12 @@
 import React, { useRef } from "react";
-import { snippetGroups } from "./mockData";
+import { snippetGroups } from "./snippets";
 
 interface EditorPaneProps {
   value: string;
   onChange: (value: string) => void;
 }
 
-export const EditorPane: React.FC<EditorPaneProps> = ({ value, onChange }) => {
+export function EditorPane({ value, onChange }: EditorPaneProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const lines = value.split("\n");
@@ -130,4 +130,4 @@ export const EditorPane: React.FC<EditorPaneProps> = ({ value, onChange }) => {
       </div>
     </div>
   );
-};
+}

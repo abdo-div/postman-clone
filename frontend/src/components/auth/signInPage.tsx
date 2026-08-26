@@ -1,4 +1,3 @@
-import React from "react";
 import { SignInForm } from "./signInForm";
 import { IdePreview } from "./idePreview";
 
@@ -8,11 +7,11 @@ interface SignInPageProps {
   onForgotPassword?: () => void;
 }
 
-export const SignInPage: React.FC<SignInPageProps> = ({
+export function SignInPage({
   onSuccess,
   onSwitchToSignUp,
   onForgotPassword,
-}) => {
+}: SignInPageProps) {
   return (
     <div className="flex min-h-screen bg-surface-container-lowest font-body-md text-on-surface selection:bg-primary-container selection:text-on-primary-container">
       <div className="flex w-full min-h-screen">
@@ -67,4 +66,4 @@ export const SignInPage: React.FC<SignInPageProps> = ({
       </div>
     </div>
   );
-};
+}
