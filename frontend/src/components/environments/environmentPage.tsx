@@ -13,21 +13,28 @@ interface EnvironmentPageProps {
 }
 
 export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onNavigate, onImport }) => {
-  const { environments, activeEnvironmentId, setActiveEnvironmentId, loadEnvironments, addEnvironment, isLoading } = useEnvironmentStore();
+  const { environments, activeEnvironmentId, setActiveEnvironmentId, loadEnvironments, addEnvironment, deleteEnvironment, isLoading } = useEnvironmentStore();
   const { addToast } = useToastStore();
 
   useEffect(() => {
     loadEnvironments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const active = environments.find((e) => e.id === activeEnvironmentId) || environments[0];
 
-  const handleAddEnvironment = async () => {
-    const name = prompt("Enter Environment name (e.g. Staging, Production):");
-    if (name && name.trim()) {
-      const created = await addEnvironment(name.trim());
+  const handleCreateEnvironment = async (name: string) => {
+    try {
+      const created = await addEnvironment(name);
       addToast({ type: "success", title: "Environment created", description: created.name });
+    } catch {
+      addToast({ type: "error", title: "Could not create environment", description: "The name may already be in use." });
     }
+  };
+
+  const handleDeleteEnvironment = async (id: string, name: string) => {
+    await deleteEnvironment(id);
+    addToast({ type: "info", title: "Environment deleted", description: name });
   };
 
   return (
@@ -49,13 +56,20 @@ export const EnvironmentPage: React.FC<EnvironmentPageProps> = ({ onExit, onNavi
                 environments={environments}
                 activeId={active?.id || ""}
                 onSelect={setActiveEnvironmentId}
-                onAdd={handleAddEnvironment}
+                onCreate={handleCreateEnvironment}
+                onDelete={handleDeleteEnvironment}
               />
-              {active && (
+              {active ? (
                 <EnvironmentEditor
                   key={active.id}
                   environmentId={active.id}
                 />
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-3xl">dns</span>
+                  <p className="font-body-md">No environment selected</p>
+                  <p className="font-body-sm text-xs">Create one with the + button on the left.</p>
+                </div>
               )}
             </>
           )}

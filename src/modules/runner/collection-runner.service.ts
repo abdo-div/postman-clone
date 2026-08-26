@@ -41,10 +41,10 @@ export class CollectionRunnerService {
 
     if (input.environmentId) {
       const env = await EnvironmentModel.findById(input.environmentId);
-      if (env && env.variables) {
-        env.variables.forEach((val, key) => {
-          activeVars[key] = val;
-        });
+      if (env && Array.isArray(env.variables)) {
+        for (const v of env.variables) {
+          if (v.key) activeVars[v.key] = v.currentValue || v.initialValue || "";
+        }
       }
     }
 

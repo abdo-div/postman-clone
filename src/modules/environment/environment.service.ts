@@ -1,49 +1,55 @@
 import mongoose from "mongoose";
-import { EnvironmentModel, IEnvironment } from "./environment.model.js";
+import { randomUUID } from "node:crypto";
+import { EnvironmentModel, IEnvironment, IEnvironmentVariable } from "./environment.model.js";
 import { CreateEnvironmentInput, UpdateEnvironmentInput } from "./environment.dto.js";
 import { NotFoundError } from "../../errors/app-error.js";
 
-function formatEnvVariables(variablesRaw: any): any[] {
+function inferSecret(key: string): boolean {
+  const k = key.toLowerCase();
+  return (
+    k.includes("token") ||
+    k.includes("secret") ||
+    k.includes("key") ||
+    k.includes("password")
+  );
+}
+
+/**
+ * Normalize incoming variables into the rich storage shape.
+ * Accepts either an array of variable objects or a legacy key->value map.
+ */
+function normalizeVariables(variablesRaw: any): IEnvironmentVariable[] {
   if (!variablesRaw) return [];
+
   if (Array.isArray(variablesRaw)) {
-    return variablesRaw.map((v, idx) => ({
-      id: v.id || String(idx + 1),
-      key: v.key || "",
-      initialValue: v.initialValue || v.value || "",
-      currentValue: v.currentValue || v.value || "",
-      secret: Boolean(v.secret),
-      description: v.description || "",
-    }));
+    return variablesRaw
+      .filter((v) => v && typeof v === "object")
+      .map((v) => ({
+        id: typeof v.id === "string" && v.id ? v.id : randomUUID(),
+        key: String(v.key ?? ""),
+        initialValue: String(v.initialValue ?? ""),
+        currentValue: String(v.currentValue ?? ""),
+        secret: Boolean(v.secret),
+        description: String(v.description ?? ""),
+      }));
   }
+
   if (variablesRaw instanceof Map || typeof variablesRaw === "object") {
-    const entries = variablesRaw instanceof Map ? Array.from(variablesRaw.entries()) : Object.entries(variablesRaw);
-    return entries.map(([key, value], idx) => ({
-      id: String(idx + 1),
+    const entries =
+      variablesRaw instanceof Map
+        ? Array.from(variablesRaw.entries())
+        : Object.entries(variablesRaw);
+    return entries.map(([key, value]) => ({
+      id: randomUUID(),
       key,
       initialValue: String(value),
       currentValue: String(value),
-      secret: key.toLowerCase().includes("token") || key.toLowerCase().includes("secret") || key.toLowerCase().includes("key") || key.toLowerCase().includes("password"),
+      secret: inferSecret(key),
       description: "",
     }));
   }
-  return [];
-}
 
-function toVariablesMap(vars: any): Record<string, string> {
-  if (!vars) return {};
-  if (Array.isArray(vars)) {
-    const map: Record<string, string> = {};
-    for (const v of vars) {
-      if (v.key && v.key.trim()) {
-        map[v.key.trim()] = v.currentValue ?? v.initialValue ?? "";
-      }
-    }
-    return map;
-  }
-  if (typeof vars === "object") {
-    return vars;
-  }
-  return {};
+  return [];
 }
 
 export class EnvironmentService {
@@ -57,28 +63,28 @@ export class EnvironmentService {
         {
           name: "Production",
           isGlobal: false,
-          variables: {
-            baseUrl: "https://jsonplaceholder.typicode.com",
-            authToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            apiVersion: "v1",
-            timeout: "5000",
-          },
+          variables: [
+            { id: randomUUID(), key: "baseUrl", initialValue: "https://jsonplaceholder.typicode.com", currentValue: "https://jsonplaceholder.typicode.com", secret: false, description: "Base API URL" },
+            { id: randomUUID(), key: "authToken", initialValue: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", currentValue: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", secret: true, description: "" },
+            { id: randomUUID(), key: "apiVersion", initialValue: "v1", currentValue: "v1", secret: false, description: "" },
+            { id: randomUUID(), key: "timeout", initialValue: "5000", currentValue: "5000", secret: false, description: "" },
+          ],
         },
         {
           name: "Staging",
           isGlobal: false,
-          variables: {
-            baseUrl: "https://staging-api.example.com",
-            authToken: "stg_secret_998844",
-          },
+          variables: [
+            { id: randomUUID(), key: "baseUrl", initialValue: "https://staging-api.example.com", currentValue: "https://staging-api.example.com", secret: false, description: "" },
+            { id: randomUUID(), key: "authToken", initialValue: "stg_secret_998844", currentValue: "stg_secret_998844", secret: true, description: "" },
+          ],
         },
         {
           name: "Local Development",
           isGlobal: false,
-          variables: {
-            baseUrl: "http://localhost:5000",
-            authToken: "dev_mock_token_123",
-          },
+          variables: [
+            { id: randomUUID(), key: "baseUrl", initialValue: "http://localhost:5000", currentValue: "http://localhost:5000", secret: false, description: "" },
+            { id: randomUUID(), key: "authToken", initialValue: "dev_mock_token_123", currentValue: "dev_mock_token_123", secret: true, description: "" },
+          ],
         },
       ]);
     } catch {
@@ -88,9 +94,7 @@ export class EnvironmentService {
 
   public async createEnvironment(input: CreateEnvironmentInput): Promise<any> {
     const data: any = { ...input };
-    if (data.variables) {
-      data.variables = toVariablesMap(data.variables);
-    }
+    data.variables = normalizeVariables(data.variables);
     return await EnvironmentModel.create(data);
   }
 
@@ -102,7 +106,7 @@ export class EnvironmentService {
       ...e,
       id: e._id ? e._id.toString() : e.id,
       isProd: e.name ? e.name.toLowerCase().includes("prod") : false,
-      variables: formatEnvVariables(e.variables),
+      variables: normalizeVariables(e.variables),
     }));
   }
 
@@ -116,8 +120,8 @@ export class EnvironmentService {
 
   public async updateEnvironment(id: string, input: UpdateEnvironmentInput): Promise<any> {
     const data: any = { ...input };
-    if (data.variables) {
-      data.variables = toVariablesMap(data.variables);
+    if ("variables" in data) {
+      data.variables = normalizeVariables(data.variables);
     }
     const updated = await EnvironmentModel.findByIdAndUpdate(
       id,

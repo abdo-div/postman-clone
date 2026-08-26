@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useWorkbenchStore, type HttpMethod } from "../store/useWorkbenchStore";
 import { useCollectionStore } from "../store/useCollectionStore";
 import { useEnvironmentStore } from "../store/useEnvironmentStore";
+
 import { useHistoryStore } from "../store/useHistoryStore";
 import { useToastStore } from "../store/useToastStore";
 import { useAuthStore } from "../store/useAuthStore";
@@ -100,6 +101,7 @@ export const MainWorkbench: React.FC<MainWorkbenchProps> = ({
 
   useEffect(() => {
     loadCollections();
+    useEnvironmentStore.getState().loadEnvironments();
     useHistoryStore.getState().load().then(() => {
       setHistoryItems(useHistoryStore.getState().items);
     });

@@ -16,14 +16,15 @@ export interface Environment {
   variables: EnvironmentVariable[];
 }
 
-function variablesToMap(vars: EnvironmentVariable[] = []): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const v of vars) {
-    if (v.key && v.key.trim()) {
-      map[v.key.trim()] = v.currentValue ?? v.initialValue ?? "";
-    }
-  }
-  return map;
+function variablesToPayload(vars: EnvironmentVariable[] = []) {
+  return vars.map((v) => ({
+    id: v.id,
+    key: v.key,
+    initialValue: v.initialValue ?? "",
+    currentValue: v.currentValue ?? v.initialValue ?? "",
+    secret: Boolean(v.secret),
+    description: v.description ?? "",
+  }));
 }
 
 export const environmentService = {
@@ -86,7 +87,7 @@ export const environmentService = {
       const res = await apiClient.post("/environments", {
         name,
         isGlobal: false,
-        variables: variablesToMap(variables),
+        variables: variablesToPayload(variables),
       });
       const created = res.data?.data || res.data;
       if (created?._id || created?.id) {
@@ -103,7 +104,7 @@ export const environmentService = {
     try {
       await apiClient.patch(`/environments/${id}`, {
         name,
-        variables: variablesToMap(variables),
+        variables: variablesToPayload(variables),
       });
     } catch {
       // Local fallback

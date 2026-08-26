@@ -10,16 +10,25 @@ const tabs = ["Variables", "Details"] as const;
 type Tab = (typeof tabs)[number];
 
 export const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentId }) => {
-  const { environments, addVariable, updateVariable, deleteVariable, updateEnvironmentName } = useEnvironmentStore();
+  const { environments, addVariable, updateVariable, deleteVariable, updateEnvironmentName, saveEnvironmentChanges } = useEnvironmentStore();
   const { addToast } = useToastStore();
   const [activeTab, setActiveTab] = useState<Tab>("Variables");
   const [showSecrets, setShowSecrets] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const env = environments.find((e) => e.id === environmentId);
   if (!env) return null;
 
-  const handleSave = () => {
-    addToast({ type: "success", title: "Environment saved", description: env.name });
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await saveEnvironmentChanges(env.id);
+      addToast({ type: "success", title: "Environment saved", description: env.name });
+    } catch {
+      addToast({ type: "error", title: "Save failed", description: "Could not reach the server." });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -43,10 +52,15 @@ export const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmen
           </button>
           <button
             onClick={handleSave}
-            className="ml-1 flex items-center space-x-1 rounded border-l border-outline-variant px-2 py-1 pl-3 text-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface"
+            disabled={isSaving}
+            className="ml-1 flex items-center space-x-1 rounded border-l border-outline-variant px-2 py-1 pl-3 text-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-sm">save</span>
-            <span>Save Changes</span>
+            {isSaving ? (
+              <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined text-sm">save</span>
+            )}
+            <span>{isSaving ? "Saving..." : "Save Changes"}</span>
           </button>
         </div>
       </div>

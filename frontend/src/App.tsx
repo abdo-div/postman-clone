@@ -29,12 +29,17 @@ export default function App() {
     useAuthStore.getState().isAuthenticated ? "workbench" : "landing",
   );
 
+  const pageViews: View[] = ["landing", "workbench", "runner", "environments", "import", "history", "testEditor"];
+  const handlePageNavigate = (target: string) => {
+    if (pageViews.includes(target as View)) setView(target as View);
+  };
+
   let content: React.ReactNode;
 
   if (view === "workbench") {
     content = (
       <MainWorkbench
-        onNavigate={(target) => setView(target)}
+        onNavigate={handlePageNavigate}
         onImport={() => setView("import")}
         onLogout={() => setView("landing")}
       />
@@ -43,10 +48,7 @@ export default function App() {
     content = (
       <CollectionRunnerPage
         onExit={() => setView("workbench")}
-        onNavigate={(item) => {
-          if (item === "Environments") setView("environments");
-          if (item === "History") setView("history");
-        }}
+        onNavigate={handlePageNavigate}
         onImport={() => setView("import")}
       />
     );
@@ -54,6 +56,7 @@ export default function App() {
     content = (
       <EnvironmentPage
         onExit={() => setView("workbench")}
+        onNavigate={handlePageNavigate}
         onImport={() => setView("import")}
       />
     );
@@ -61,9 +64,7 @@ export default function App() {
     content = (
       <HistoryPage
         onExit={() => setView("workbench")}
-        onNavigate={(item) => {
-          if (item === "Environments") setView("environments");
-        }}
+        onNavigate={handlePageNavigate}
         onImport={() => setView("import")}
         onOpenRequest={() => setView("testEditor")}
       />
