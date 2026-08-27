@@ -36,13 +36,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install Dependencies
+      # ---------------------------------------------------------------
+      # Backend
+      # ---------------------------------------------------------------
+      - name: Install Backend Dependencies
         working-directory: backend
         run: npm ci
 
-      - name: TypeScript Type Check
+      - name: TypeScript Type Check (Backend)
         working-directory: backend
         run: npx tsc --noEmit
 
@@ -50,11 +52,27 @@ jobs:
         working-directory: backend
         env:
           NODE_ENV: test
+          MONGO_URI: mongodb://localhost:27017/api_engine_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-          MONGODB_URI: mongodb://localhost:27017/api_engine_test
+          JWT_SECRET: ci_test_secret_at_least_32_characters_long_123
         run: npm run test
 
-      - name: Verify Production Build
+      - name: Verify Production Build (Backend)
         working-directory: backend
+        run: npm run build
+
+      # ---------------------------------------------------------------
+      # Frontend
+      # ---------------------------------------------------------------
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint (Frontend)
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Type Check + Build (Frontend)
+        working-directory: frontend
         run: npm run build
