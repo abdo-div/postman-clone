@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { BrandLogo } from "../layout/BrandLogo";
 
 interface ForgotPasswordPageProps {
   onBack?: () => void;
@@ -22,13 +23,7 @@ export function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
         {/* Brand */}
         <div className="mb-8 flex justify-center">
           <div className="flex items-center gap-2 text-primary">
-            <span
-              style={{ fontVariationSettings: "'FILL' 1" }}
-              className="material-symbols-outlined text-3xl"
-            >
-              terminal
-            </span>
-            <span className="font-headline-lg font-bold text-headline-lg">API Workbench</span>
+            <BrandLogo height={50} />
           </div>
         </div>
 

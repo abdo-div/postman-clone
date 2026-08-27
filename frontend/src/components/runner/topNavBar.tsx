@@ -1,4 +1,5 @@
 import { useAuthStore } from "../../store/useAuthStore";
+import { BrandLogo } from "../layout/BrandLogo";
 
 interface TopNavBarProps {
   onBrandClick?: () => void;
@@ -25,8 +26,7 @@ export function TopNavBar({ onBrandClick, onNavigate, onImportClick, onRunCollec
           onClick={onBrandClick}
           className="text-[17px] font-bold text-[#4cd7f6] flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>api</span>
-          API Workbench
+          <BrandLogo height={50} />
         </button>
 
         <div className="hidden md:flex items-center h-full">

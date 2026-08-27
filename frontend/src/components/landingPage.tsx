@@ -21,10 +21,10 @@ import {
   Send,
   SquareActivity,
   SquareCheck,
-  SquareTerminal,
   Terminal,
   Users,
 } from "lucide-react";
+import { BrandLogo } from "./layout/BrandLogo";
 
 interface LandingPageProps {
   onGetStarted?: () => void;
@@ -156,10 +156,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       >
         <div className="flex items-center gap-8">
           <a className="group flex items-center gap-2" href="#">
-            <SquareTerminal className="h-5 w-5 text-cyan-electric" />
-            <span className="font-display text-lg font-bold text-on-surface transition-colors group-hover:text-cyan-electric">
-              API Workbench
-            </span>
+            <BrandLogo height={50} />
           </a>
           <div className="hidden items-center gap-6 lg:flex">
             {navLinks.map((link) => (
@@ -595,8 +592,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="mb-16 grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
             <div className="col-span-2 lg:col-span-1">
               <a className="mb-6 flex items-center gap-2" href="#">
-                <SquareTerminal className="h-5 w-5 text-cyan-electric" />
-                <span className="font-display text-lg font-bold text-on-surface">API Workbench</span>
+                <BrandLogo height={50} />
               </a>
               <p className="mb-6 text-sm text-on-surface-variant">
                 The comprehensive platform for API development, testing, and automation.
@@ -661,7 +657,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
           <div className="flex flex-col items-center justify-between gap-4 border-t border-outline pt-8 md:flex-row">
             <p className="text-sm text-on-surface-variant">
-              © 2024 API Workbench Inc. All rights reserved.
+              © 2024 APIPilot Inc. All rights reserved.
             </p>
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
               <span className="h-2 w-2 rounded-full bg-emerald-400"></span>

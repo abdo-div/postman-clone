@@ -9,7 +9,10 @@ import { useHistoryStore } from "../store/useHistoryStore";
 import { useToastStore } from "../store/useToastStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { executorService, executeTestScript, interpolateVariables } from "../services/executorService";
+import { isTokenExpired, refreshAccessToken, getClientCredentialsToken, getPasswordToken, getAuthorizationCodeToken, defaultRedirectUri } from "../services/oauth2Service";
+import type { OAuthTokenResult } from "../services/oauth2Service";
 import type { View } from "../App";
+import { BrandLogo } from "./layout/BrandLogo";
 
 interface MainWorkbenchProps {
   onNavigate?: (view: View) => void;
@@ -238,12 +241,76 @@ export function MainWorkbench({
   };
 
   const buildFinalUrl = (url: string, params: ParamItem[], envVars: Record<string, string>) => {
-    const enabledParams = params.filter((p) => p.enabled && p.key.trim());
+    const merged = [...params];
+    if (wb.authType === "api-key") {
+      const eff = wb.getEffectiveParams();
+      for (const [k, v] of Object.entries(eff)) {
+        if (!merged.some((p) => p.key === k && p.value === v)) {
+          merged.push({ id: "ak" + k, enabled: true, key: k, value: v, description: "" });
+        }
+      }
+    }
+    const enabledParams = merged.filter((p) => p.enabled && p.key.trim());
     if (enabledParams.length === 0) return url;
     const queryString = enabledParams
       .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(interpolateVariables(p.value, envVars))}`)
       .join("&");
     return url.includes("?") ? `${url}&${queryString}` : `${url}?${queryString}`;
+  };
+
+  const ensureOAuth2Token = async (): Promise<void> => {
+    if (wb.authType !== "oauth2") return;
+    const config = wb.oauth2;
+    if (!config.tokenUrl.trim()) {
+      addToast({ type: "warning", title: "OAuth 2.0 not configured", description: "Provide a Token URL and Client ID to obtain an access token" });
+      return;
+    }
+    if (config.accessToken && !isTokenExpired(config)) return;
+
+    // Try refreshing first when possible
+    if (config.refreshToken) {
+      try {
+        const tok = await refreshAccessToken(config);
+        wb.setOAuth2Config({
+          ...config,
+          accessToken: tok.accessToken,
+          refreshToken: tok.refreshToken || config.refreshToken,
+          tokenType: tok.tokenType || config.tokenType,
+          expiresIn: tok.expiresIn,
+          acquiredAt: Date.now(),
+        });
+        addToast({ type: "success", title: "Access token refreshed" });
+        return;
+      } catch (err: unknown) {
+        addToast({ type: "warning", title: "Token refresh failed", description: err instanceof Error ? err.message : "Unknown error" });
+      }
+    }
+
+    try {
+      let tok: OAuthTokenResult;
+      if (config.grantType === "client_credentials") {
+        if (!config.clientId.trim()) throw new Error("Client ID is required");
+        tok = await getClientCredentialsToken(config);
+      } else if (config.grantType === "password") {
+        if (!config.username.trim() || !config.password.trim()) throw new Error("Username and password are required for the Password grant");
+        tok = await getPasswordToken(config);
+      } else {
+        if (!config.clientId.trim()) throw new Error("Client ID is required");
+        tok = await getAuthorizationCodeToken(config);
+      }
+      wb.setOAuth2Config({
+        ...config,
+        accessToken: tok.accessToken,
+        refreshToken: tok.refreshToken || config.refreshToken,
+        tokenType: tok.tokenType || config.tokenType,
+        expiresIn: tok.expiresIn,
+        acquiredAt: Date.now(),
+      });
+      addToast({ type: "success", title: "OAuth 2.0 access token obtained" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      addToast({ type: "error", title: "OAuth token request failed", description: msg, duration: 6000 });
+    }
   };
 
   const handleSend = async () => {
@@ -274,6 +341,12 @@ export function MainWorkbench({
     }
 
     const interpolatedUrl = buildFinalUrl(interpolate(wb.url), wb.params, envVars);
+
+    // Ensure a valid OAuth 2.0 access token exists before sending
+    if (wb.authType === "oauth2") {
+      await ensureOAuth2Token();
+    }
+
     const effectiveHeaders = wb.getEffectiveHeaders();
 
     const interpolatedHeaders: Record<string, string> = {};
@@ -286,6 +359,40 @@ export function MainWorkbench({
 
     try {
       let bodyToSend: string | Record<string, unknown> | undefined = undefined;
+
+      if (wb.bodyType === "form-data") {
+        // Non-form-data methods can still carry a form body, but GET/HEAD never do
+        if (wb.method === "GET" || wb.method === "HEAD") {
+          bodyToSend = undefined;
+        } else {
+          const formEntries = wb.formData.filter((f) => f.enabled && f.key.trim());
+          if (formEntries.length > 0) {
+            const formData = new FormData();
+            for (const f of formEntries) {
+              const key = interpolate(f.key.trim());
+              if (f.type === "file" && f.file instanceof File) {
+                formData.append(key, f.file, f.file.name);
+              } else {
+                formData.append(key, interpolate(f.value));
+              }
+            }
+
+            const result = await executorService.executeFormData({
+              url: interpolatedUrl,
+              method: wb.method,
+              headers: interpolatedHeaders,
+              formData,
+              environmentVariables: envVars,
+              timeoutMs: engineSettings.timeoutMs,
+            });
+
+            // Post-process form-data result (tests + history + toasts)
+            await handleSendResult(result, bodyToSend, envVars, interpolatedUrl, interpolatedHeaders);
+            return;
+          }
+        }
+      }
+
       if (wb.bodyType !== "none" && wb.body.trim() && wb.method !== "GET" && wb.method !== "HEAD") {
         try {
           bodyToSend = JSON.parse(interpolate(wb.body));
@@ -303,85 +410,95 @@ export function MainWorkbench({
         timeoutMs: engineSettings.timeoutMs,
       });
 
-      // Run post-response test assertions
-      let testResults: TestAssertionResult[] = [];
-      let updatedEnvVars: Record<string, string> = {};
-      if (wb.testsScript.trim()) {
-        const testRes = executeTestScript(
-          wb.testsScript,
-          {
-            status: result.status,
-            statusText: result.statusText,
-            headers: result.headers,
-            data: result.data,
-            responseTime: result.metrics?.durationMs,
-          },
-          envVars,
-        );
-        testResults = testRes.results || [];
-        updatedEnvVars = testRes.environmentVariables || {};
-      }
-
-      const dataText = typeof result.data === "string" ? result.data : JSON.stringify(result.data, null, 2);
-
-      wb.setResponse({
-        status: result.status,
-        statusText: result.statusText,
-        durationMs: result.metrics?.durationMs || 0,
-        sizeBytes: result.metrics?.sizeBytes || 0,
-        headers: result.headers || {},
-        data: result.data,
-        dataText,
-        testResults,
-        updatedEnvVars,
-      });
-
-      // Log to history and save in MongoDB
-      await addHistory({
-        requestId: wb.linkedRequestId || undefined,
-        method: wb.method,
-        url: interpolatedUrl,
-        status: result.status,
-        statusText: result.statusText,
-        durationMs: result.metrics?.durationMs || 0,
-        sizeBytes: result.metrics?.sizeBytes || 0,
-        requestHeaders: interpolatedHeaders,
-        requestBody: bodyToSend,
-        responseBody: result.data,
-        responseHeaders: result.headers,
-        testResults,
-      });
-
-      setHistoryItems(useHistoryStore.getState().items);
-
-      const passedTests = testResults.filter((r) => r.passed).length;
-      const failedTests = testResults.filter((r) => !r.passed).length;
-
-      if (result.status >= 400) {
-        addToast({
-          type: "error",
-          title: `${result.status} ${result.statusText}`,
-          description: `${result.metrics?.durationMs}ms`,
-          duration: 3000,
-        });
-      } else {
-        addToast({
-          type: "success",
-          title: `${result.status} ${result.statusText}`,
-          description: `${result.metrics?.durationMs}ms · ${formatBytes(result.metrics?.sizeBytes || 0)}${testResults.length ? ` · ${passedTests}/${testResults.length} tests passed` : ""}`,
-          duration: 3000,
-        });
-      }
-
-      if (failedTests > 0) {
-        addToast({ type: "warning", title: `${failedTests} test(s) failed`, duration: 4000 });
-      }
+      await handleSendResult(result, bodyToSend, envVars, interpolatedUrl, interpolatedHeaders);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Request failed";
       wb.setError(errMsg);
       addToast({ type: "error", title: "Request Failed", description: errMsg, duration: 5000 });
     } finally {
       wb.setIsSending(false);
+    }
+  };
+
+  const handleSendResult = async (
+    result: { status: number; statusText: string; headers: Record<string, string>; data: string | Record<string, unknown>; metrics?: { durationMs: number; sizeBytes: number } },
+    bodyToSend: string | Record<string, unknown> | undefined,
+    envVars: Record<string, string>,
+    interpolatedUrl: string,
+    interpolatedHeaders: Record<string, string>,
+  ) => {
+    // Run post-response test assertions
+    let testResults: TestAssertionResult[] = [];
+    let updatedEnvVars: Record<string, string> = {};
+    if (wb.testsScript.trim()) {
+      const testRes = executeTestScript(
+        wb.testsScript,
+        {
+          status: result.status,
+          statusText: result.statusText,
+          headers: result.headers,
+          data: result.data,
+          responseTime: result.metrics?.durationMs,
+        },
+        envVars,
+      );
+      testResults = testRes.results || [];
+      updatedEnvVars = testRes.environmentVariables || {};
+    }
+
+    const dataText = typeof result.data === "string" ? result.data : JSON.stringify(result.data, null, 2);
+
+    wb.setResponse({
+      status: result.status,
+      statusText: result.statusText,
+      durationMs: result.metrics?.durationMs || 0,
+      sizeBytes: result.metrics?.sizeBytes || 0,
+      headers: result.headers || {},
+      data: result.data,
+      dataText,
+      testResults,
+      updatedEnvVars,
+    });
+
+    // Log to history and save in MongoDB
+    await addHistory({
+      requestId: wb.linkedRequestId || undefined,
+      method: wb.method,
+      url: interpolatedUrl,
+      status: result.status,
+      statusText: result.statusText,
+      durationMs: result.metrics?.durationMs || 0,
+      sizeBytes: result.metrics?.sizeBytes || 0,
+      requestHeaders: interpolatedHeaders,
+      requestBody: bodyToSend,
+      responseBody: result.data,
+      responseHeaders: result.headers,
+      testResults,
+    });
+
+    setHistoryItems(useHistoryStore.getState().items);
+
+    const passedTests = testResults.filter((r) => r.passed).length;
+    const failedTests = testResults.filter((r) => !r.passed).length;
+
+    if (result.status >= 400) {
+      addToast({
+        type: "error",
+        title: `${result.status} ${result.statusText}`,
+        description: `${result.metrics?.durationMs}ms`,
+        duration: 3000,
+      });
+    } else {
+      addToast({
+        type: "success",
+        title: `${result.status} ${result.statusText}`,
+        description: `${result.metrics?.durationMs}ms · ${formatBytes(result.metrics?.sizeBytes || 0)}${testResults.length ? ` · ${passedTests}/${testResults.length} tests passed` : ""}`,
+        duration: 3000,
+      });
+    }
+
+    if (failedTests > 0) {
+      addToast({ type: "warning", title: `${failedTests} test(s) failed`, duration: 4000 });
     }
   };
 
@@ -397,11 +514,14 @@ export function MainWorkbench({
         queryParams: wb.params,
         bodyType: wb.bodyType,
         body: wb.body,
+        formData: wb.formData,
         auth: {
           type: wb.authType,
           token: wb.bearerToken,
           username: wb.basicAuth.username,
           password: wb.basicAuth.password,
+          apiKey: wb.apiKey,
+          oauth2: wb.oauth2,
         },
         testsScript: wb.testsScript,
         preRequestScript: wb.preRequestScript,
@@ -469,11 +589,14 @@ export function MainWorkbench({
       queryParams: wb.params,
       bodyType: wb.bodyType,
       body: wb.body,
+      formData: wb.formData,
       auth: {
         type: wb.authType,
         token: wb.bearerToken,
         username: wb.basicAuth.username,
         password: wb.basicAuth.password,
+        apiKey: wb.apiKey,
+        oauth2: wb.oauth2,
       },
       testsScript: wb.testsScript,
       preRequestScript: wb.preRequestScript,
@@ -635,8 +758,7 @@ export function MainWorkbench({
             onClick={() => onNavigate?.("landing")}
             className="text-[17px] font-bold text-primary flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>api</span>
-            API Workbench
+            <BrandLogo height={50} />
           </button>
 
           <div className="hidden md:flex items-center gap-2 ml-4 border-l border-border pl-4">
@@ -1294,7 +1416,7 @@ export function MainWorkbench({
           {wb.activeRequestTab === "Body" && (
             <div className="flex-1 flex flex-col overflow-hidden bg-surface-container-low">
               <div className="flex items-center gap-4 px-4 py-2 border-b border-border text-xs">
-                {(["none", "json", "raw"] as const).map((bt) => (
+                {(["none", "form-data", "json", "raw"] as const).map((bt) => (
                   <label key={bt} className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
@@ -1303,12 +1425,128 @@ export function MainWorkbench({
                       className="accent-cyan-400"
                     />
                     <span className={wb.bodyType === bt ? "text-primary font-semibold" : "text-slate-400"}>
-                      {bt === "none" ? "none" : bt === "json" ? "JSON" : "raw text"}
+                      {bt === "none" ? "none" : bt === "form-data" ? "form-data" : bt === "json" ? "JSON" : "raw text"}
                     </span>
                   </label>
                 ))}
               </div>
-              {wb.bodyType !== "none" ? (
+
+              {wb.bodyType === "form-data" ? (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="text-[11px] px-4 py-1.5 text-slate-400 border-b border-border">
+                    Multipart form data. Use <span className="text-cyan-400">File</span> type rows to upload files.
+                  </div>
+                  <div className="flex-1 overflow-auto p-3">
+                    <table className="w-full text-left border-collapse border border-border bg-background text-xs rounded-lg overflow-hidden">
+                      <thead>
+                        <tr className="bg-input-bg text-slate-400">
+                          <th className="w-8 border border-border text-center p-1"></th>
+                          <th className="w-24 border border-border py-2 px-3 font-mono">Type</th>
+                          <th className="border border-border py-2 px-3 font-mono">Key</th>
+                          <th className="border border-border py-2 px-3 font-mono">Value / File</th>
+                          <th className="border border-border py-2 px-3 font-mono">Description</th>
+                          <th className="w-8 border border-border"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-mono">
+                        {wb.formData.map((row) => (
+                          <tr key={row.id} className="hover:bg-surface-container group">
+                            <td className="border border-border text-center">
+                              <input
+                                type="checkbox"
+                                checked={row.enabled}
+                                onChange={(e) => wb.setFormData(row.id, "enabled", e.target.checked)}
+                                className="w-3.5 h-3.5 accent-cyan-400"
+                              />
+                            </td>
+                            <td className="border border-border p-0">
+                              <select
+                                value={row.type}
+                                onChange={(e) => wb.setFormData(row.id, "type", e.target.value === "file" ? "file" : "text")}
+                                className="w-full bg-transparent border-none px-3 py-1.5 focus:outline-none text-on-surface-variant"
+                              >
+                                <option value="text">Text</option>
+                                <option value="file">File</option>
+                              </select>
+                            </td>
+                            <td className="border border-border p-0">
+                              <input
+                                className={`w-full bg-transparent border-none px-3 py-1.5 focus:outline-none text-on-surface ${!row.enabled && "opacity-40"}`}
+                                value={row.key}
+                                placeholder="field_name"
+                                onChange={(e) => wb.setFormData(row.id, "key", e.target.value)}
+                              />
+                            </td>
+                            <td className="border border-border p-0">
+                              {row.type === "text" ? (
+                                <input
+                                  className={`w-full bg-transparent border-none px-3 py-1.5 focus:outline-none text-code-text ${!row.enabled && "opacity-40"}`}
+                                  value={row.value}
+                                  placeholder="value or {{var}}"
+                                  onChange={(e) => wb.setFormData(row.id, "value", e.target.value)}
+                                />
+                              ) : (
+                                <div className="flex items-center gap-2 px-3 py-1.5">
+                                  {row.file ? (
+                                    <span className="text-cyan-400 truncate flex-1" title={row.file.name}>
+                                      <span className="material-symbols-outlined text-[13px] align-middle mr-1">description</span>
+                                      {row.file.name}
+                                    </span>
+                                  ) : row.fileName ? (
+                                    <span className="text-slate-400 truncate flex-1">{row.fileName}</span>
+                                  ) : (
+                                    <span className="flex-1 truncate text-slate-500">no file selected</span>
+                                  )}
+                                  <label className="cursor-pointer text-cyan-400 hover:underline flex items-center gap-1 shrink-0">
+                                    <span className="material-symbols-outlined text-[14px]">attach_file</span>
+                                    {row.file ? "Change" : "Select"}
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const next = e.target.files?.[0] || null;
+                                        if (next instanceof File) {
+                                          wb.setFormData(row.id, "file", next);
+                                        }
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              )}
+                            </td>
+                            <td className="border border-border p-0">
+                              <input
+                                className="w-full bg-transparent border-none px-3 py-1.5 focus:outline-none text-slate-400"
+                                value={row.description || ""}
+                                placeholder="description"
+                                onChange={(e) => wb.setFormData(row.id, "description", e.target.value)}
+                              />
+                            </td>
+                            <td className="border border-border text-center opacity-0 group-hover:opacity-100">
+                              <span
+                                onClick={() => wb.deleteFormData(row.id)}
+                                className="material-symbols-outlined text-[16px] text-slate-400 hover:text-red-400 cursor-pointer"
+                              >
+                                delete
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td className="border border-border"></td>
+                          <td className="border border-border p-0" colSpan={4}>
+                            <button onClick={wb.addFormData} className="w-full px-3 py-2 text-left text-slate-500 hover:text-primary transition-colors text-xs">
+                              + Add form field
+                            </button>
+                          </td>
+                          <td className="border border-border"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : wb.bodyType !== "none" ? (
                 <textarea
                   className="flex-1 bg-surface-container-lowest text-on-surface font-mono text-xs p-4 resize-none focus:outline-none border-none leading-relaxed"
                   placeholder={wb.bodyType === "json" ? '{\n  "key": "value",\n  "userId": "{{userId}}"\n}' : "Enter request body payload..."}
@@ -1328,8 +1566,8 @@ export function MainWorkbench({
           {/* Auth Tab */}
           {wb.activeRequestTab === "Auth" && (
             <div className="flex-1 overflow-auto p-4 bg-surface-container-low text-xs">
-              <div className="flex gap-4 mb-4">
-                {(["none", "bearer", "basic"] as const).map((at) => (
+              <div className="flex flex-wrap gap-4 mb-4">
+                {(["none", "bearer", "basic", "api-key", "oauth2"] as const).map((at) => (
                   <label key={at} className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
@@ -1338,7 +1576,7 @@ export function MainWorkbench({
                       className="accent-cyan-400"
                     />
                     <span className={wb.authType === at ? "text-primary font-semibold" : "text-slate-400"}>
-                      {at === "none" ? "No Auth" : at === "bearer" ? "Bearer Token" : "Basic Auth"}
+                      {at === "none" ? "No Auth" : at === "bearer" ? "Bearer Token" : at === "basic" ? "Basic Auth" : at === "api-key" ? "API Key" : "OAuth 2.0"}
                     </span>
                   </label>
                 ))}
@@ -1373,6 +1611,231 @@ export function MainWorkbench({
                       value={wb.basicAuth.password}
                       onChange={(e) => wb.setBasicAuth("password", e.target.value)}
                     />
+                  </div>
+                </div>
+              )}
+              {wb.authType === "api-key" && (
+                <div className="max-w-xl flex flex-col gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Key</label>
+                    <input
+                      className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                      placeholder="X-Api-Key"
+                      value={wb.apiKey.key}
+                      onChange={(e) => wb.setApiKey("key", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Value</label>
+                    <input
+                      type="password"
+                      className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                      placeholder="api_key_value or {{apiKey}}"
+                      value={wb.apiKey.value}
+                      onChange={(e) => wb.setApiKey("value", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Add to</label>
+                    <div className="flex gap-3">
+                      {(["header", "query"] as const).map((where) => (
+                        <label key={where} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={wb.apiKey.addTo === where}
+                            onChange={() => wb.setApiKey("addTo", where)}
+                            className="accent-cyan-400"
+                          />
+                          <span className="text-slate-400">{where === "header" ? "Request Header" : "Query Params"}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {wb.authType === "oauth2" && (
+                <div className="max-w-2xl flex flex-col gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Grant Type</label>
+                      <select
+                        className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface focus:border-primary focus:outline-none"
+                        value={wb.oauth2.grantType}
+                        onChange={(e) => wb.setOAuth2("grantType", e.target.value as "authorization_code" | "client_credentials" | "password")}
+                      >
+                        <option value="authorization_code">Authorization Code</option>
+                        <option value="client_credentials">Client Credentials</option>
+                        <option value="password">Password</option>
+                      </select>
+                    </div>
+                    {wb.oauth2.grantType === "authorization_code" && (
+                      <div>
+                        <label className="block text-slate-300 font-medium mb-1">Authorization URL</label>
+                        <input
+                          className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                          placeholder="https://provider.com/oauth/authorize"
+                          value={wb.oauth2.authUrl}
+                          onChange={(e) => wb.setOAuth2("authUrl", e.target.value)}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Access Token URL</label>
+                      <input
+                        className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                        placeholder="https://provider.com/oauth/token"
+                        value={wb.oauth2.tokenUrl}
+                        onChange={(e) => wb.setOAuth2("tokenUrl", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Client ID</label>
+                      <input
+                        className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                        placeholder="your_client_id"
+                        value={wb.oauth2.clientId}
+                        onChange={(e) => wb.setOAuth2("clientId", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Client Secret</label>
+                      <input
+                        type="password"
+                        className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                        placeholder="your_client_secret"
+                        value={wb.oauth2.clientSecret}
+                        onChange={(e) => wb.setOAuth2("clientSecret", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Scope</label>
+                      <input
+                        className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                        placeholder="read write (space separated)"
+                        value={wb.oauth2.scope}
+                        onChange={(e) => wb.setOAuth2("scope", e.target.value)}
+                      />
+                    </div>
+                    {wb.oauth2.grantType === "authorization_code" && (
+                      <div>
+                        <label className="block text-slate-300 font-medium mb-1">Redirect URI</label>
+                        <input
+                          className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface font-mono focus:border-primary focus:outline-none"
+                          placeholder={defaultRedirectUri()}
+                          value={wb.oauth2.redirectUri}
+                          onChange={(e) => wb.setOAuth2("redirectUri", e.target.value)}
+                        />
+                        <p className="text-[10px] text-slate-500 mt-0.5">Leave empty to default to the current app origin.</p>
+                      </div>
+                    )}
+                    {wb.oauth2.grantType === "password" && (
+                      <>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Username</label>
+                          <input
+                            className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface focus:border-primary focus:outline-none"
+                            value={wb.oauth2.username}
+                            onChange={(e) => wb.setOAuth2("username", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Password</label>
+                          <input
+                            type="password"
+                            className="w-full bg-surface-container-lowest border border-border rounded-lg px-3 py-2 text-on-surface focus:border-primary focus:outline-none"
+                            value={wb.oauth2.password}
+                            onChange={(e) => wb.setOAuth2("password", e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Token status + actions */}
+                  <div className="border border-border rounded-lg p-3 bg-surface-container-lowest">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {wb.oauth2.accessToken ? (
+                        <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
+                          <span className="material-symbols-outlined text-[15px]">verified_user</span>
+                          Token ready
+                          {wb.oauth2.expiresIn > 0 && (
+                            <span className="text-slate-400 font-normal">
+                              (token lifetime {Math.round(wb.oauth2.expiresIn / 60)} min)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-slate-400">
+                          <span className="material-symbols-outlined text-[15px]">lock_open</span>
+                          No access token yet
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      <button
+                        onClick={async () => {
+                          if (wb.oauth2.refreshToken) {
+                            try {
+                              const tok = await refreshAccessToken(wb.oauth2);
+                              wb.setOAuth2Config({
+                                ...wb.oauth2,
+                                accessToken: tok.accessToken,
+                                refreshToken: tok.refreshToken || wb.oauth2.refreshToken,
+                                tokenType: tok.tokenType || wb.oauth2.tokenType,
+                                expiresIn: tok.expiresIn,
+                                acquiredAt: Date.now(),
+                              });
+                              addToast({ type: "success", title: "Access token refreshed" });
+                            } catch (err: unknown) {
+                              addToast({ type: "error", title: "Token refresh failed", description: err instanceof Error ? err.message : "Unknown error", duration: 6000 });
+                            }
+                          } else {
+                            addToast({ type: "warning", title: "No refresh token", description: "Obtain a new access token first." });
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded border border-border text-cyan-400 hover:bg-surface-active transition-colors flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">refresh</span> Refresh
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            let tok: OAuthTokenResult;
+                            if (wb.oauth2.grantType === "client_credentials") {
+                              if (!wb.oauth2.clientId.trim()) throw new Error("Client ID is required");
+                              tok = await getClientCredentialsToken(wb.oauth2);
+                            } else if (wb.oauth2.grantType === "password") {
+                              if (!wb.oauth2.username.trim() || !wb.oauth2.password.trim()) throw new Error("Username and password are required for the Password grant");
+                              tok = await getPasswordToken(wb.oauth2);
+                            } else {
+                              if (!wb.oauth2.clientId.trim()) throw new Error("Client ID is required");
+                              tok = await getAuthorizationCodeToken(wb.oauth2);
+                            }
+                            wb.setOAuth2Config({
+                              ...wb.oauth2,
+                              accessToken: tok.accessToken,
+                              refreshToken: tok.refreshToken || wb.oauth2.refreshToken,
+                              tokenType: tok.tokenType || wb.oauth2.tokenType,
+                              expiresIn: tok.expiresIn,
+                              acquiredAt: Date.now(),
+                            });
+                            addToast({ type: "success", title: "OAuth 2.0 access token obtained" });
+                          } catch (err: unknown) {
+                            addToast({ type: "error", title: "OAuth token request failed", description: err instanceof Error ? err.message : "Unknown error", duration: 6000 });
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded bg-primary text-on-primary font-bold hover:opacity-90 transition-opacity flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">key</span> Get New Access Token
+                      </button>
+                    </div>
+                    {wb.oauth2.accessToken && (
+                      <div className="mt-2 text-[11px] text-slate-400 font-mono truncate" title={wb.oauth2.accessToken}>
+                        {wb.oauth2.tokenType || "Bearer"} · {wb.oauth2.accessToken.slice(0, 40)}{wb.oauth2.accessToken.length > 40 ? "…" : ""}
+                      </div>
+                    )}
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      The access token will be applied automatically as <code className="text-cyan-400">Authorization: {wb.oauth2.tokenType || "Bearer"} &lt;token&gt;</code> and refreshed when expired.
+                    </p>
                   </div>
                 </div>
               )}

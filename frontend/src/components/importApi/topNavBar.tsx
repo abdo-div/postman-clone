@@ -1,3 +1,5 @@
+import { BrandLogo } from "../layout/BrandLogo";
+
 interface TopNavBarProps {
   onBrandClick?: () => void;
 }
@@ -18,7 +20,7 @@ export function TopNavBar({ onBrandClick }: TopNavBarProps) {
           onClick={onBrandClick}
           className="font-headline-md text-headline-md font-bold text-primary"
         >
-          API Workbench
+          <BrandLogo height={50} />
         </button>
         <nav className="flex h-full gap-4 pt-1">
           {navItems.map((item) =>

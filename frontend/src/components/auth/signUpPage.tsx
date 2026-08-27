@@ -1,5 +1,6 @@
 import { SignUpForm } from "./signUpForm";
 import { RunnerPreview } from "./runnerPreview";
+import { BrandLogo } from "../layout/BrandLogo";
 
 interface SignUpPageProps {
   onSuccess?: () => void;
@@ -12,12 +13,7 @@ export function SignUpPage({ onSuccess, onSwitchToSignIn }: SignUpPageProps) {
       {/* Left Pane: Form */}
       <div className="relative z-10 w-full overflow-y-auto border-r border-outline-variant/30 bg-surface-container-lowest p-8 lg:w-5/12 lg:p-12 xl:w-[45%] xl:p-16">
         <div className="flex items-center gap-2 text-primary">
-          <span style={{ fontVariationSettings: "'FILL' 1" }} className="material-symbols-outlined">
-            terminal
-          </span>
-          <span className="font-headline-md font-bold tracking-tight text-headline-md">
-            API Workbench
-          </span>
+          <BrandLogo height={50} />
         </div>
 
         <div className="mx-auto mt-12 mb-12 flex w-full max-w-sm grow flex-col justify-center">

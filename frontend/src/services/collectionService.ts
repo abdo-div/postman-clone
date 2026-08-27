@@ -16,6 +16,37 @@ export interface ParamItem {
   description?: string;
 }
 
+export interface FormDataItem {
+  id: string;
+  enabled: boolean;
+  key: string;
+  value: string;
+  type: "text" | "file";
+  description?: string;
+  fileName?: string;
+  file?: File | null;
+  fileId?: string; // track same file across renders during a session
+}
+
+export type OAuth2GrantType = "authorization_code" | "client_credentials" | "password";
+
+export interface OAuth2Config {
+  grantType: OAuth2GrantType;
+  authUrl: string;
+  tokenUrl: string;
+  clientId: string;
+  clientSecret: string;
+  scope: string;
+  username: string;
+  password: string;
+  redirectUri: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  acquiredAt: number;
+}
+
 export interface RequestItem {
   id: string;
   name: string;
@@ -27,12 +58,14 @@ export interface RequestItem {
   queryParams: ParamItem[];
   bodyType?: "none" | "json" | "raw" | "form-data";
   body?: string;
+  formData?: FormDataItem[];
   auth?: {
-    type: "none" | "bearer" | "basic" | "api-key";
+    type: "none" | "bearer" | "basic" | "api-key" | "oauth2";
     token?: string;
     username?: string;
     password?: string;
     apiKey?: { key: string; value: string; addTo: "header" | "query" };
+    oauth2?: OAuth2Config;
   };
   testsScript?: string;
   preRequestScript?: string;
@@ -96,6 +129,11 @@ export const collectionService = {
             queryParams: Array.isArray(r.queryParams) ? r.queryParams as ParamItem[] : [],
             bodyType: (r.bodyType || (r.body as Record<string, unknown>)?.mode || "none") as RequestItem["bodyType"],
             body: (typeof r.body === "string" ? r.body : (r.body as Record<string, unknown>)?.rawContent || "") as string,
+            formData: Array.isArray(r.formData)
+              ? (r.formData as FormDataItem[]).map((f) => ({ ...f, file: undefined, fileId: undefined }))
+              : Array.isArray((r.body as Record<string, unknown>)?.formData)
+                ? ((r.body as Record<string, unknown>).formData as FormDataItem[]).map((f) => ({ ...f, file: undefined, fileId: undefined }))
+                : [],
             testsScript: ((r as Record<string, unknown>).testsScript || (r as Record<string, unknown>).testScript || "") as string,
             preRequestScript: (r.preRequestScript || "") as string,
             auth: (r.auth || { type: "none" }) as RequestItem["auth"],
@@ -170,6 +208,15 @@ export const collectionService = {
         mode: req.bodyType || "none",
         rawContent: req.body || "",
       },
+      formData: (req.formData || []).map(({ id, enabled, key, value, type, description, fileName }) => ({
+        id: id || "fd-" + Date.now(),
+        enabled,
+        key,
+        value,
+        type,
+        description: description || "",
+        fileName: fileName || "",
+      })),
       testScript: req.testsScript || "",
       preRequestScript: req.preRequestScript || "",
     };
@@ -184,6 +231,7 @@ export const collectionService = {
       queryParams: req.queryParams || [],
       bodyType: req.bodyType || "none",
       body: req.body || "",
+      formData: req.formData || [],
       auth: req.auth || { type: "none" },
       testsScript: req.testsScript || "",
       preRequestScript: req.preRequestScript || "",
@@ -214,6 +262,15 @@ export const collectionService = {
           mode: req.bodyType || "none",
           rawContent: req.body || "",
         },
+        formData: (req.formData || []).map(({ id, enabled, key, value, type, description, fileName }) => ({
+          id: id || "fd-" + Date.now(),
+          enabled,
+          key,
+          value,
+          type,
+          description: description || "",
+          fileName: fileName || "",
+        })),
         testScript: req.testsScript,
         preRequestScript: req.preRequestScript,
       });

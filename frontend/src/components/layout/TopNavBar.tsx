@@ -1,4 +1,5 @@
 import { useAuthStore } from "../../store/useAuthStore";
+import { BrandLogo } from "./BrandLogo";
 
 interface NavItem {
   label: string;
@@ -49,8 +50,7 @@ export function TopNavBar({
           onClick={onBrandClick}
           className="mr-4 flex items-center gap-2 font-headline-md text-headline-md font-bold text-primary"
         >
-          <span className="material-symbols-outlined">api</span>
-          API Workbench
+          <BrandLogo height={50} />
         </button>
 
         <nav className="hidden h-full items-center gap-density-comfortable md:flex">

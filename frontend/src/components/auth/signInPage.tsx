@@ -1,5 +1,6 @@
 import { SignInForm } from "./signInForm";
 import { IdePreview } from "./idePreview";
+import { BrandLogo } from "../layout/BrandLogo";
 
 interface SignInPageProps {
   onSuccess?: () => void;
@@ -19,15 +20,7 @@ export function SignInPage({
         <div className="relative z-10 flex w-full flex-col border-r border-outline-variant bg-surface-container-lowest p-8 lg:w-[480px] lg:p-12">
           {/* Brand Header */}
           <a href="#" className="group mb-16 flex w-max items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-primary-container text-on-primary-container transition-transform group-active:scale-95">
-              <span
-                style={{ fontVariationSettings: "'FILL' 1" }}
-                className="material-symbols-outlined text-lg"
-              >
-                api
-              </span>
-            </div>
-            <span className="font-headline-md text-headline-md text-on-surface">API Workbench</span>
+            <BrandLogo height={50} />
           </a>
 
           <div className="mx-auto flex w-full max-w-[360px] flex-1 flex-col justify-center">

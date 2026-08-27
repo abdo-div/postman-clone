@@ -354,6 +354,80 @@ export const executorService = {
     }
   },
 
+  /**
+   * Execute a multipart/form-data request directly in the browser.
+   * File objects cannot be serialized over the JSON backend proxy, so they
+   * are always sent via an in-browser fetch with a real FormData body.
+   */
+  async executeFormData(payload: {
+    url: string;
+    method: string;
+    headers?: Record<string, string>;
+    formData: FormData;
+    environmentVariables?: Record<string, string>;
+    timeoutMs?: number;
+  }): Promise<ExecutionResponseData> {
+    const startTime = performance.now();
+    const substitutedUrl = interpolateVariables(payload.url, payload.environmentVariables);
+
+    const substitutedHeaders: Record<string, string> = {};
+    if (payload.headers) {
+      for (const [k, v] of Object.entries(payload.headers)) {
+        if (/^content-type$/i.test(k)) continue; // browser sets the boundary
+        substitutedHeaders[k] = interpolateVariables(v, payload.environmentVariables);
+      }
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), payload.timeoutMs || 10000);
+
+    try {
+      const res = await fetch(substitutedUrl, {
+        method: payload.method,
+        headers: substitutedHeaders,
+        body: payload.formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      const durationMs = Math.round(performance.now() - startTime);
+      const headersObj: Record<string, string> = {};
+      res.headers.forEach((v, k) => {
+        headersObj[k] = v;
+      });
+
+      const text = await res.text();
+      let parsedData: string | Record<string, unknown> = text;
+      try {
+        parsedData = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        // plain text
+      }
+
+      return {
+        status: res.status,
+        statusText: res.statusText || (res.status === 200 ? "OK" : ""),
+        headers: headersObj,
+        data: parsedData,
+        metrics: {
+          durationMs,
+          sizeBytes: new Blob([text]).size,
+        },
+      };
+    } catch (error: unknown) {
+      clearTimeout(timeout);
+      const msg = error instanceof Error ? error.message : String(error);
+      const name = error instanceof Error ? error.name : "";
+      if (name === "AbortError") {
+        throw new Error(`Request timed out after ${payload.timeoutMs || 10000}ms`, { cause: error });
+      }
+      throw new Error(
+        msg || "Network error or CORS issue when sending multipart/form-data",
+        { cause: error },
+      );
+    }
+  },
+
   async runTests(
     script: string,
     response: {

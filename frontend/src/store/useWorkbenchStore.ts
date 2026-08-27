@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import type { HeaderItem, ParamItem, RequestItem } from "../services/collectionService";
+import type { HeaderItem, ParamItem, RequestItem, FormDataItem, OAuth2Config } from "../services/collectionService";
 import type { TestAssertionResult } from "../services/executorService";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "HEAD";
 export type BodyType = "none" | "json" | "raw" | "form-data";
-export type AuthType = "none" | "bearer" | "basic" | "api-key";
+export type AuthType = "none" | "bearer" | "basic" | "api-key" | "oauth2";
 export type RequestTab = "Params" | "Headers" | "Body" | "Auth" | "Pre-request Script" | "Tests";
 export type ResponseTab = "Body" | "Headers" | "Test Results";
 export type ResponseBodyView = "Pretty" | "Raw" | "Preview";
@@ -29,9 +29,12 @@ interface WorkbenchState {
   headers: HeaderItem[];
   bodyType: BodyType;
   body: string;
+  formData: FormDataItem[];
   authType: AuthType;
   bearerToken: string;
   basicAuth: { username: string; password: string };
+  apiKey: { key: string; value: string; addTo: "header" | "query" };
+  oauth2: OAuth2Config;
   testsScript: string;
   preRequestScript: string;
 
@@ -65,9 +68,16 @@ interface WorkbenchState {
   deleteHeader: (id: string) => void;
   setBodyType: (bt: BodyType) => void;
   setBody: (b: string) => void;
+  setFormData: (id: string, field: keyof FormDataItem, val: string | boolean | File | null) => void;
+  addFormData: () => void;
+  deleteFormData: (id: string) => void;
+  resetFormData: (items?: FormDataItem[]) => void;
   setAuthType: (a: AuthType) => void;
   setBearerToken: (t: string) => void;
   setBasicAuth: (field: "username" | "password", val: string) => void;
+  setApiKey: (field: "key" | "value" | "addTo", val: string) => void;
+  setOAuth2: (field: keyof OAuth2Config, val: string | number | OAuth2Config["grantType"]) => void;
+  setOAuth2Config: (config: OAuth2Config) => void;
   setTestsScript: (s: string) => void;
   setPreRequestScript: (s: string) => void;
   setActiveRequestTab: (t: RequestTab) => void;
@@ -90,6 +100,7 @@ interface WorkbenchState {
     queryParams?: ParamItem[];
     bodyType?: BodyType;
     body?: string;
+    formData?: FormDataItem[];
     auth?: RequestItem["auth"];
     testsScript?: string;
     preRequestScript?: string;
@@ -117,9 +128,27 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   ],
   bodyType: "none",
   body: "",
+  formData: [],
   authType: "none",
   bearerToken: "",
   basicAuth: { username: "", password: "" },
+  apiKey: { key: "", value: "", addTo: "header" },
+  oauth2: {
+    grantType: "authorization_code",
+    authUrl: "",
+    tokenUrl: "",
+    clientId: "",
+    clientSecret: "",
+    scope: "",
+    username: "",
+    password: "",
+    redirectUri: "",
+    accessToken: "",
+    refreshToken: "",
+    tokenType: "Bearer",
+    expiresIn: 0,
+    acquiredAt: 0,
+  },
   testsScript: "",
   preRequestScript: "",
   requestName: "New Request",
@@ -169,6 +198,38 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   setBodyType: (bt) => set({ bodyType: bt, hasUnsavedChanges: true }),
   setBody: (b) => set({ body: b, hasUnsavedChanges: true }),
+  setFormData: (id, field, val) =>
+    set((s) => ({
+      formData: s.formData.map((f) =>
+        f.id === id
+          ? {
+              ...f,
+              [field]: val,
+              ...(field === "file" && val instanceof File
+                ? { fileName: (val as File).name }
+                : {}),
+            }
+          : f,
+      ),
+      hasUnsavedChanges: true,
+    })),
+  addFormData: () =>
+    set((s) => ({
+      formData: [
+        ...s.formData,
+        {
+          id: "fd-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+          enabled: true,
+          key: "",
+          value: "",
+          type: "text",
+          description: "",
+          fileName: "",
+        },
+      ],
+    })),
+  deleteFormData: (id) => set((s) => ({ formData: s.formData.filter((f) => f.id !== id) })),
+  resetFormData: (items = []) => set({ formData: items }),
   setAuthType: (a) => set({ authType: a, hasUnsavedChanges: true }),
   setBearerToken: (t) => set({ bearerToken: t, hasUnsavedChanges: true }),
   setBasicAuth: (field, val) =>
@@ -176,6 +237,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       basicAuth: { ...s.basicAuth, [field]: val },
       hasUnsavedChanges: true,
     })),
+  setApiKey: (field, val) =>
+    set((s) => ({
+      apiKey: { ...s.apiKey, [field]: field === "addTo" ? (val === "query" ? "query" : "header") : val },
+      hasUnsavedChanges: true,
+    })),
+  setOAuth2: (field, val) =>
+    set((s) => ({
+      oauth2: { ...s.oauth2, [field]: val },
+      hasUnsavedChanges: true,
+    })),
+  setOAuth2Config: (config) => set({ oauth2: config, hasUnsavedChanges: true }),
   setTestsScript: (s) => set({ testsScript: s, hasUnsavedChanges: true }),
   setPreRequestScript: (s) => set({ preRequestScript: s, hasUnsavedChanges: true }),
   setActiveRequestTab: (t) => set({ activeRequestTab: t }),
@@ -208,11 +280,29 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       params,
       bodyType: req.bodyType || "none",
       body: req.body || "",
+      formData: req.formData ? req.formData.map((f) => ({ ...f, file: undefined, fileId: f.id })) : [],
       authType: (req.auth?.type || "none") as AuthType,
       bearerToken: req.auth?.token || "",
       basicAuth: {
         username: req.auth?.username || "",
         password: req.auth?.password || "",
+      },
+      apiKey: req.auth?.apiKey || { key: "", value: "", addTo: "header" },
+      oauth2: req.auth?.oauth2 || {
+        grantType: "authorization_code",
+        authUrl: "",
+        tokenUrl: "",
+        clientId: "",
+        clientSecret: "",
+        scope: "",
+        username: "",
+        password: "",
+        redirectUri: "",
+        accessToken: "",
+        refreshToken: "",
+        tokenType: "Bearer",
+        expiresIn: 0,
+        acquiredAt: 0,
       },
       testsScript: req.testsScript || "",
       preRequestScript: req.preRequestScript || "",
@@ -228,7 +318,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   },
 
   getEffectiveHeaders: () => {
-    const { headers, authType, bearerToken, basicAuth } = get();
+    const { headers, authType, bearerToken, basicAuth, apiKey, oauth2 } = get();
     const result: Record<string, string> = {};
     for (const h of headers) {
       if (h.enabled && h.key.trim()) {
@@ -240,17 +330,24 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     } else if (authType === "basic" && basicAuth.username) {
       const encoded = btoa(`${basicAuth.username}:${basicAuth.password}`);
       result["Authorization"] = `Basic ${encoded}`;
+    } else if (authType === "api-key" && apiKey.key && apiKey.addTo === "header" && apiKey.value) {
+      result[apiKey.key.trim()] = apiKey.value;
+    } else if (authType === "oauth2" && oauth2.accessToken) {
+      result["Authorization"] = `${oauth2.tokenType || "Bearer"} ${oauth2.accessToken}`;
     }
     return result;
   },
 
   getEffectiveParams: () => {
-    const { params } = get();
+    const { params, authType, apiKey } = get();
     const result: Record<string, string> = {};
     for (const p of params) {
       if (p.enabled && p.key.trim()) {
         result[p.key.trim()] = p.value;
       }
+    }
+    if (authType === "api-key" && apiKey.key && apiKey.addTo === "query" && apiKey.value) {
+      result[apiKey.key.trim()] = apiKey.value;
     }
     return result;
   },
