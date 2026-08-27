@@ -39,12 +39,15 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
+        working-directory: backend
         run: npm ci
 
       - name: TypeScript Type Check
+        working-directory: backend
         run: npx tsc --noEmit
 
       - name: Run Vitest Suites
+        working-directory: backend
         env:
           NODE_ENV: test
           REDIS_HOST: localhost
@@ -53,4 +56,5 @@ jobs:
         run: npm run test
 
       - name: Verify Production Build
+        working-directory: backend
         run: npm run build
