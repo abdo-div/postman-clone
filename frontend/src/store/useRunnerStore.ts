@@ -25,6 +25,8 @@ export interface RunStep {
 export interface RunSummary {
   totalRequests: number;
   completed: number;
+  requestsPassed: number;
+  requestsFailed: number;
   testsPassed: number;
   testsFailed: number;
   totalDurationMs: number;
@@ -105,6 +107,8 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
       summary: {
         totalRequests: requests.length * iterations,
         completed: 0,
+        requestsPassed: 0,
+        requestsFailed: 0,
         testsPassed: 0,
         testsFailed: 0,
         totalDurationMs: 0,
@@ -113,6 +117,8 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
     });
 
     let currentEnvVars = { ...environmentVariables };
+    let totalRequestsPassed = 0;
+    let totalRequestsFailed = 0;
     let totalTestsPassed = 0;
     let totalTestsFailed = 0;
     let totalDuration = 0;
@@ -180,9 +186,18 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
             stepTestsPassed = testRes.results.filter((r) => r.passed).length;
             stepTestsFailed = testRes.results.filter((r) => !r.passed).length;
             currentEnvVars = { ...currentEnvVars, ...testRes.environmentVariables };
+          } else {
+            const requestOk = result.status < 400;
+            testResults = requestOk
+              ? [{ name: "Request completed", passed: true }]
+              : [{ name: `HTTP ${result.status}`, passed: false, error: `${result.status} ${result.statusText}`.trim() }];
+            stepTestsPassed = requestOk ? 1 : 0;
+            stepTestsFailed = requestOk ? 0 : 1;
           }
 
           const passed = result.status < 400;
+          if (passed) totalRequestsPassed++;
+          else totalRequestsFailed++;
           totalTestsPassed += stepTestsPassed;
           totalTestsFailed += stepTestsFailed;
           totalDuration += result.metrics?.durationMs || 0;
@@ -210,6 +225,8 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
             summary: {
               totalRequests: requests.length * iterations,
               completed,
+              requestsPassed: totalRequestsPassed,
+              requestsFailed: totalRequestsFailed,
               testsPassed: totalTestsPassed,
               testsFailed: totalTestsFailed,
               totalDurationMs: totalDuration,
@@ -223,6 +240,7 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
           }
         } catch (err: unknown) {
           completed++;
+          totalRequestsFailed++;
           totalTestsFailed++;
           const errMsg = err instanceof Error ? err.message : "Unknown error";
 
@@ -235,6 +253,16 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
             progress: Math.round(
               ((iter * requests.length + i + 1) / (iterations * requests.length)) * 100,
             ),
+            summary: {
+              totalRequests: requests.length * iterations,
+              completed,
+              requestsPassed: totalRequestsPassed,
+              requestsFailed: totalRequestsFailed,
+              testsPassed: totalTestsPassed,
+              testsFailed: totalTestsFailed,
+              totalDurationMs: totalDuration,
+              startedAt: s.summary?.startedAt || new Date().toISOString(),
+            },
           }));
 
           if (stopOnError) {

@@ -63,10 +63,11 @@ export function CollectionRunnerPage({
     }
     const envVars = getVariablesMap();
     await runner.runCollection(selectedCollection, envVars);
+    const summary = useRunnerStore.getState().summary;
     addToast({
-      type: runner.summary?.testsFailed === 0 ? "success" : "warning",
+      type: summary?.requestsFailed === 0 ? "success" : "warning",
       title: "Collection run completed",
-      description: `${runner.summary?.testsPassed || 0} passed · ${runner.summary?.testsFailed || 0} failed`,
+      description: `${summary?.requestsPassed || 0} passed · ${summary?.requestsFailed || 0} failed`,
     });
   };
 
@@ -216,12 +217,14 @@ export function CollectionRunnerPage({
 
           {/* Summary metrics */}
           {runner.summary && (
-            <div className="grid grid-cols-5 gap-1 rounded bg-slate-800 p-0.5">
+            <div className="grid grid-cols-7 gap-1 rounded bg-slate-800 p-0.5">
               {[
                 { label: "Total", value: runner.summary.totalRequests },
                 { label: "Completed", value: runner.summary.completed },
-                { label: "Tests Passed", value: runner.summary.testsPassed, accent: "pass" },
-                { label: "Tests Failed", value: runner.summary.testsFailed, accent: "fail" },
+                { label: "Passed", value: runner.summary.requestsPassed, accent: "pass" },
+                { label: "Failed", value: runner.summary.requestsFailed, accent: "fail" },
+                { label: "Tests ✓", value: runner.summary.testsPassed, accent: "pass" },
+                { label: "Tests ✗", value: runner.summary.testsFailed, accent: "fail" },
                 { label: "Duration", value: `${(runner.summary.totalDurationMs / 1000).toFixed(2)}s` },
               ].map((m) => (
                 <div key={m.label} className="flex flex-col bg-slate-900 px-3 py-2">
@@ -289,7 +292,7 @@ export function CollectionRunnerPage({
                   )}
                   {(step.testsPassed !== undefined || step.testsFailed !== undefined) && (
                     <div className="flex items-center gap-1">
-                      <span className="text-emerald-400">{step.testsPassed || 0}✓</span>
+                      {(step.testsPassed || 0) > 0 && <span className="text-emerald-400">{step.testsPassed}✓</span>}
                       {(step.testsFailed || 0) > 0 && <span className="text-red-400">{step.testsFailed}✗</span>}
                     </div>
                   )}
