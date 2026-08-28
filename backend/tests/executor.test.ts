@@ -26,7 +26,7 @@ describe('SSRF Guard & Executor Engine Suite', () => {
   describe('Executor Engine Integration Tests', () => {
     it('should resolve mustache variables and fire HTTP GET request successfully', async () => {
       const result = await executor.execute({
-        url: 'https://httpbin.org/get?param={{testKey}}',
+        url: 'https://postman-echo.com/get?param={{testKey}}',
         method: 'GET',
         headers: { 'X-Custom-Header': '{{headerVal}}' },
         environmentVariables: {
@@ -37,6 +37,8 @@ describe('SSRF Guard & Executor Engine Suite', () => {
       });
 
       expect(result.status).toBe(200);
+      const body = JSON.parse(result.data as string) as { args?: { param?: string } };
+      expect(body.args?.param).toBe('helloWorld');
       expect(result.metrics.durationMs).toBeGreaterThan(0);
       expect(result.metrics.sizeBytes).toBeGreaterThan(0);
     });

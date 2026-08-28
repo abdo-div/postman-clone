@@ -8,7 +8,13 @@ RUN npm run build
 
 # Stage 2: Serve with nginx
 FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Default to docker-compose service name; override on other hosts (e.g. Railway)
+ENV BACKEND_HOST=backend
+# Only substitute $BACKEND_HOST at boot; leave nginx runtime vars untouched
+ENV NGINX_ENVSUBST_FILTER='$BACKEND_HOST'
+
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { UnauthorizedError } from "../errors/app-error.js";
+import { env } from "../config/env.config.js";
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -26,7 +27,7 @@ export const authenticateToken = (
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret") as {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
       userId: string;
     };
     req.userId = decoded.userId;
