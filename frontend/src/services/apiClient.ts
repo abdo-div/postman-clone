@@ -44,10 +44,27 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const data = error.response?.data;
+
+    if (status === 401) {
       // Token might be expired
       console.warn("Unauthorized API call:", error.config?.url);
     }
+
+    // Surface the server's structured error message so callers get a
+    // specific, human-readable error instead of a generic axios message.
+    if (data?.error) {
+      const serverError = typeof data.error === "string" ? { message: data.error } : data.error;
+      if (serverError?.message) {
+        error.message = serverError.message;
+      }
+      error.serverCode = serverError?.code;
+      error.operationId = serverError?.operationId;
+    } else if (status === 500) {
+      error.message = "Something went wrong on our end. Please try again later.";
+    }
+
     return Promise.reject(error);
   },
 );

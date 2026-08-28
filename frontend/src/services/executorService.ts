@@ -348,8 +348,14 @@ export const executorService = {
       }
       return response.data as unknown as ExecutionResponseData;
     } catch (err: unknown) {
+      const axiosErr = err as { response?: unknown };
+      if (axiosErr?.response) {
+        // Backend processed the request but returned an operational error —
+        // surface its structured, human-readable message instead of masking it.
+        throw err;
+      }
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn("Backend executor unavailable or returned error, falling back to direct browser execution:", msg);
+      console.warn("Backend executor unavailable, falling back to direct browser execution:", msg);
       return clientSideExecute(payload);
     }
   },

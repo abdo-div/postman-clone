@@ -1,19 +1,34 @@
 import { ExecuteRequestInput, ExecutionResponse } from "./executor.dto.js";
 import { VariableParser } from "../../utils/variable-parser.util.js";
-import { BadRequestError } from "../../errors/app-error.js";
+import { AppError, BadRequestError } from "../../errors/app-error.js";
 import { validateTargetUrl } from "../../utils/ssrf-guard.js";
+
+/** Pulls the actual underlying failure out of a wrapped FetchError. */
+function unwrapError(error: any): { code: string; message: string } {
+  const cause = error?.cause ?? error;
+  return {
+    code: cause?.code ?? error?.code ?? "",
+    message: cause?.message ?? error?.message ?? "",
+  };
+}
+
+function extractHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
 
 export class ExecutorService {
   public async execute(input: ExecuteRequestInput): Promise<ExecutionResponse> {
+    const resolvedUrl = VariableParser.parse(input.url, input.environmentVariables || {});
     try {
       // 1. Safely retrieve variables and headers with fallback defaults
       const envVars = input.environmentVariables || {};
       const rawHeaders = input.headers || {};
 
-      // 2. Resolve mustache variables
-      const resolvedUrl = VariableParser.parse(input.url, envVars);
-
-      // 3. Validate target URL against SSRF rules (blocks localhost/internal IPs)
+      // 2. Validate target URL against SSRF rules (blocks localhost/internal IPs)
       await validateTargetUrl(resolvedUrl);
 
       const resolvedHeaders: Record<string, string> = {};
@@ -72,15 +87,76 @@ export class ExecutorService {
         },
       };
     } catch (error: any) {
+      // Preserve operational errors (e.g. SSRF guard blocks with their 403 status)
+      if (error instanceof AppError) {
+        throw error;
+      }
+
       if (error.name === "AbortError") {
         throw new BadRequestError(
-          `Request execution timed out after ${input.timeoutMs || 10000}ms`
+          `The request timed out after ${input.timeoutMs || 10000}ms. The server took too long to respond.`,
+          "REQUEST_TIMEOUT",
+          { timeoutMs: input.timeoutMs || 10000 },
         );
       }
 
-      // Catches ENOTFOUND, ECONNREFUSED, SSRF guard exceptions, and bad domain names
+      const { code, message } = unwrapError(error);
+      const host = extractHost(resolvedUrl);
+
+      switch (code) {
+        case "ENOTFOUND":
+        case "EAI_AGAIN":
+          throw new BadRequestError(
+            `Could not resolve host "${host}". Check that the domain name is correct and the DNS record exists.`,
+            "UPSTREAM_DNS_FAILURE",
+            { host, cause: code },
+          );
+        case "ECONNREFUSED":
+          throw new BadRequestError(
+            `Connection refused at "${host}". Make sure the server is running, the port is open, and the service is reachable.`,
+            "UPSTREAM_CONNECTION_REFUSED",
+            { host, cause: code },
+          );
+        case "ECONNRESET":
+        case "EPIPE":
+          throw new BadRequestError(
+            `The connection to "${host}" was reset before the response completed. The server may have closed the connection early.`,
+            "UPSTREAM_CONNECTION_RESET",
+            { host, cause: code },
+          );
+        case "ETIMEDOUT":
+        case "ESOCKETTIMEDOUT":
+          throw new BadRequestError(
+            `Timed out while connecting to "${host}". The server may be slow, overloaded, or unreachable.`,
+            "UPSTREAM_CONNECTION_TIMEOUT",
+            { host, cause: code },
+          );
+        case "EHOSTUNREACH":
+        case "ENETUNREACH":
+          throw new BadRequestError(
+            `Host "${host}" is unreachable from our servers. This is usually a firewall or routing issue.`,
+            "UPSTREAM_UNREACHABLE",
+            { host, cause: code },
+          );
+        default:
+          break;
+      }
+
+      const lower = `${code} ${message}`.toLowerCase();
+      if (lower.includes("certificate") || lower.includes("tls") || /cert/i.test(code) || code.includes("SELF_SIGNED") || code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" || code === "DEPTH_ZERO_SELF_SIGNED_CERT" || code === "ERR_TLS_CERT_ALTNAME_INVALID") {
+        throw new BadRequestError(
+          `TLS certificate verification failed for "${host}". The server's certificate may be expired, invalid, or self-signed.`,
+          "UPSTREAM_TLS_ERROR",
+          { host, cause: code },
+        );
+      }
+
+      // Generic fallback — always include the host so the message is actionable
+      const reason = message && message !== "fetch failed" ? message : "the target is not responding";
       throw new BadRequestError(
-        `Execution failed: ${error.message || "Unable to reach target host"}`
+        `Could not reach "${host}" — ${reason}.`,
+        "UPSTREAM_ERROR",
+        { host, cause: code || undefined },
       );
     }
   }

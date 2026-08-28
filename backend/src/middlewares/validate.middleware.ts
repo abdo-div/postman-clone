@@ -23,7 +23,7 @@ export const validate = (schema: z.ZodType) => {
           message: issue.message,
         }));
 
-        next(new BadRequestError('Invalid input payload', details));
+        next(new BadRequestError('Invalid input payload', 'VALIDATION_ERROR', details));
       } else {
         next(error);
       }

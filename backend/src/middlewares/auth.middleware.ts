@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { UnauthorizedError } from "../errors/app-error.js";
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -14,7 +15,13 @@ export const authenticateToken = (
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    res.status(401).json({ error: "Access denied: No token provided" });
+    res.status(401).json({
+      success: false,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Authentication required. Please sign in to continue.",
+      },
+    });
     return;
   }
 
@@ -24,8 +31,17 @@ export const authenticateToken = (
     };
     req.userId = decoded.userId;
     next();
-  } catch (err) {
-    res.status(403).json({ error: "Invalid or expired token" });
-    return;
+  } catch {
+    const err = new UnauthorizedError(
+      "Your session has expired. Please sign in again.",
+      "INVALID_OR_EXPIRED_TOKEN",
+    );
+    res.status(err.statusCode).json({
+      success: false,
+      error: {
+        code: err.errorCode,
+        message: err.message,
+      },
+    });
   }
 };

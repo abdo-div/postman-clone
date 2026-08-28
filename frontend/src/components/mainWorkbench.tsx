@@ -93,12 +93,52 @@ function parseErrorMessage(msg: string): { type: string; icon: string; message: 
       suggestion: "This could be a CORS policy block, DNS failure, or the server is unreachable. If calling a browser-based API, ensure CORS headers are set on the server.",
     };
   }
-  if (msg.includes("Invalid URL") || msg.includes("url")) {
+  if (msg.includes("Invalid URL") || msg.includes("url") || msg.includes("URL")) {
     return {
       type: "Invalid URL",
       icon: "link_off",
       message: msg,
       suggestion: "Check that the URL is complete and starts with http:// or https://.",
+    };
+  }
+  if (msg.includes("resolve host") || msg.includes("ENOTFOUND") || msg.includes("domain name") || msg.includes("dns")) {
+    return {
+      type: "DNS Resolution Failed",
+      icon: "dns_off",
+      message: msg,
+      suggestion: "The domain name could not be resolved. Verify it is spelled correctly and that its DNS record exists.",
+    };
+  }
+  if (msg.includes("connection refused") || msg.includes("ECONNREFUSED")) {
+    return {
+      type: "Connection Refused",
+      icon: "wifi_off",
+      message: msg,
+      suggestion: "The server refused the connection. It may be offline, or the port may be blocked by a firewall.",
+    };
+  }
+  if (msg.includes("certificate") || msg.includes("tls") || msg.includes("TLS")) {
+    return {
+      type: "TLS / Certificate Error",
+      icon: "gpp_maybe",
+      message: msg,
+      suggestion: "The server's SSL/TLS certificate failed verification. It may be expired, invalid, or self-signed.",
+    };
+  }
+  if (msg.includes("connection") && (msg.includes("reset") || msg.includes("closed"))) {
+    return {
+      type: "Connection Reset",
+      icon: "link_off",
+      message: msg,
+      suggestion: "The server closed the connection before the response completed. Try again — the server may be overloaded.",
+    };
+  }
+  if (msg.includes("unreachable") || msg.includes("ENETUNREACH") || msg.includes("EHOSTUNREACH")) {
+    return {
+      type: "Host Unreachable",
+      icon: "domain_disabled",
+      message: msg,
+      suggestion: "The target host is unreachable from the server. Check for firewall rules or routing issues.",
     };
   }
   return {
