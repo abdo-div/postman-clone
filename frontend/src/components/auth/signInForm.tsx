@@ -140,40 +140,6 @@ export function SignInForm({ onSuccess, onForgotPassword }: SignInFormProps) {
           Continue as Guest
         </button>
       </div>
-
-      <div className="mt-8">
-        <div className="relative mb-6 flex items-center">
-          <div className="flex-grow border-t border-outline-variant"></div>
-          <span className="mx-4 shrink-0 font-body-sm text-body-sm text-on-surface-variant">
-            or continue with
-          </span>
-          <div className="flex-grow border-t border-outline-variant"></div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => {
-              guestLogin();
-              onSuccess?.();
-            }}
-            className="flex items-center justify-center gap-2 rounded border border-outline-variant bg-surface-container-low py-2 transition-colors duration-150 hover:bg-surface-container active:scale-[0.98]"
-          >
-            <span className="material-symbols-outlined text-base">code</span>
-            <span className="font-body-sm text-body-sm">GitHub</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              guestLogin();
-              onSuccess?.();
-            }}
-            className="flex items-center justify-center gap-2 rounded border border-outline-variant bg-surface-container-low py-2 transition-colors duration-150 hover:bg-surface-container active:scale-[0.98]"
-          >
-            <span className="material-symbols-outlined text-base">data_object</span>
-            <span className="font-body-sm text-body-sm">Google</span>
-          </button>
-        </div>
-      </div>
     </>
   );
 }
